@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { EquityChart, DrawdownChart } from '../Charts.jsx';
 import { runBacktest, STRATEGIES } from '../../utils/backtest.js';
 import { STOCK_UNIVERSE } from '../../utils/priceData.js';
 
@@ -14,35 +14,11 @@ function fmtCurrency(v) {
   return '$' + Number(v).toLocaleString(undefined, { minimumFractionDigits: 0 });
 }
 
-const EquityTooltip = ({ active, payload, label }) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-[#0d1526] border border-[#1a2d47] rounded p-2 text-xs">
-      <p className="text-[#64748b] mb-1">{fmtDate(label)}</p>
-      <p className="text-bull font-bold">{fmtCurrency(payload[0]?.value)}</p>
-    </div>
-  );
-};
-
-const DrawdownTooltip = ({ active, payload, label }) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-[#0d1526] border border-[#1a2d47] rounded p-2 text-xs">
-      <p className="text-[#64748b] mb-1">{fmtDate(label)}</p>
-      <p className="text-bear font-bold">{payload[0]?.value}%</p>
-      {payload[1] && <p className="text-bear/70">${Math.abs(payload[1]?.value).toLocaleString()} pts</p>}
-    </div>
-  );
-};
-
 export default function BacktestPanel({ stockData }) {
   const [stock,    setStock]    = useState('NVDA');
   const [strategy, setStrategy] = useState('TREND_PULLBACK');
 
   const result = useMemo(() => runBacktest(strategy, stockData[stock]), [stock, strategy]);
-
-  const equityData = result?.equityCurve.map(p => ({ ...p, value: p.value })) || [];
-  const ddData     = result?.drawdownCurve || [];
 
   const visibleTrades = result?.trades.slice().reverse().slice(0, 30) || [];
 
@@ -104,22 +80,7 @@ export default function BacktestPanel({ stockData }) {
               <h3 className="text-[11px] text-[#94a3b8] uppercase tracking-widest">Equity Curve — $100k Starting Capital</h3>
               <span className="text-xs text-[#64748b]">2-Year Backtest · {stock} · {STRATEGIES[strategy].name}</span>
             </div>
-            <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={equityData} margin={{ top: 5, right: 10, bottom: 0, left: 10 }}>
-                <defs>
-                  <linearGradient id="equityGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#10b981" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1a2d47" vertical={false} />
-                <XAxis dataKey="date" tick={{ fill: '#475569', fontSize: 10 }} tickFormatter={fmtDate} interval={Math.floor(equityData.length / 6)} />
-                <YAxis tick={{ fill: '#475569', fontSize: 10 }} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
-                <ReferenceLine y={100000} stroke="#1a2d47" strokeDasharray="4 4" />
-                <Tooltip content={<EquityTooltip />} />
-                <Area type="monotone" dataKey="value" stroke="#10b981" strokeWidth={2} fill="url(#equityGrad)" dot={false} />
-              </AreaChart>
-            </ResponsiveContainer>
+            <EquityChart data={result.equityCurve} width={900} height={200} />
           </div>
 
           {/* Drawdown Chart */}
@@ -128,22 +89,7 @@ export default function BacktestPanel({ stockData }) {
               <h3 className="text-[11px] text-[#94a3b8] uppercase tracking-widest">Drawdown — Short Point Drawdown</h3>
               <span className="text-xs text-bear font-semibold">Max DD: {result.maxDrawdown}% (${Math.abs(result.maxDrawdownPoints).toLocaleString()} pts)</span>
             </div>
-            <ResponsiveContainer width="100%" height={160}>
-              <AreaChart data={ddData} margin={{ top: 5, right: 10, bottom: 0, left: 10 }}>
-                <defs>
-                  <linearGradient id="ddGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#ef4444" stopOpacity={0.5} />
-                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0.05} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1a2d47" vertical={false} />
-                <XAxis dataKey="date" tick={{ fill: '#475569', fontSize: 10 }} tickFormatter={fmtDate} interval={Math.floor(ddData.length / 6)} />
-                <YAxis tick={{ fill: '#475569', fontSize: 10 }} tickFormatter={v => `${v}%`} />
-                <ReferenceLine y={0} stroke="#1a2d47" />
-                <Tooltip content={<DrawdownTooltip />} />
-                <Area type="monotone" dataKey="drawdown" stroke="#ef4444" strokeWidth={1.5} fill="url(#ddGrad)" dot={false} />
-              </AreaChart>
-            </ResponsiveContainer>
+            <DrawdownChart data={result.drawdownCurve} width={900} height={160} />
           </div>
 
           {/* Trade Log */}
