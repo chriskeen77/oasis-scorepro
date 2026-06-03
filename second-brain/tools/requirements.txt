@@ -8,3 +8,8 @@ gpsoauth>=1.1.0            # to obtain the Keep master token (one-time)
 # Drive API backend (cloud / GitHub Actions only; not needed for local mode)
 google-api-python-client>=2.0.0
 google-auth>=2.0.0
+
+# Backlog converters
+beautifulsoup4>=4.12.0     # parse Gemini Takeout HTML
+# Perplexity backlog scraper (run locally only): `pip install playwright`
+#   then `playwright install chromium`. Left optional to keep CI installs light.
