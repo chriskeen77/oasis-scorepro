@@ -38,18 +38,36 @@ being created again.
 | File | Purpose |
 |------|---------|
 | [`ARCHITECTURE.md`](./ARCHITECTURE.md) | Full design, the Drive findings, and known constraints |
-| [`INGESTION-PLAYBOOK.md`](./INGESTION-PLAYBOOK.md) | **The reusable prompt** that processes the inbox / untitled notes |
+| [`CAPTURE.md`](./CAPTURE.md) | Get chats (Web Clipper) and Keep into the vault — with the source links |
+| [`AUTOMATION.md`](./AUTOMATION.md) | The **3am nightly job** (cloud + Windows) that scrapes, tags, and links |
+| [`INGESTION-PLAYBOOK.md`](./INGESTION-PLAYBOOK.md) | The reusable Claude prompt for ad-hoc/manual processing |
 | [`CONVENTIONS.md`](./CONVENTIONS.md) | Note format, titling rules, folder roles |
 | [`OBSIDIAN-SYNC.md`](./OBSIDIAN-SYNC.md) | How to connect Obsidian to the Drive vault |
-| [`KEEP-INGESTION.md`](./KEEP-INGESTION.md) | How to get Google Keep notes into the vault (Keep is **not** in the Drive MCP) |
+| [`KEEP-INGESTION.md`](./KEEP-INGESTION.md) | Background on Google Keep options |
+| [`tools/`](./tools) | The nightly job: `nightly.py`, `keep_scrape.py`, `linker.py`, schedulers, clipper templates |
 | [`templates/`](./templates) | Plain-text copies of the vault templates |
+
+## Decisions in effect
+
+- **Canonical vault:** the Google Drive `AI_Brain_Notes/` folder, mounted locally
+  via Google Drive for Desktop and opened in Obsidian.
+- **Chat capture:** full content **+** the source URL (via Obsidian Web Clipper).
+- **Automation:** a 3am US-Central nightly job, running **both** in GitHub Actions
+  (primary) and Windows Task Scheduler (backup).
+
+## Two manual vault edits (Drive MCP can't edit existing files)
+
+In Obsidian, make these one-time tweaks to the seed files:
+1. `_System/Home.md` → add `- [[Sources MOC]]` under "Maps of Content".
+2. `_System/Tags.md` → add `#src/gemini` to the Source list.
 
 ## Quick start
 
-1. Read [`OBSIDIAN-SYNC.md`](./OBSIDIAN-SYNC.md) and point Obsidian at the
-   `AI_Brain_Notes/` folder. Open `_System/Home.md`.
-2. When new notes pile up (in `00-Inbox/` or as "Untitled" docs in Drive), run the
-   [`INGESTION-PLAYBOOK.md`](./INGESTION-PLAYBOOK.md) prompt with Claude + the
-   Drive MCP. It titles, tags, links, and files everything.
-3. Fix capture at the source using [`KEEP-INGESTION.md`](./KEEP-INGESTION.md) so
-   future notes arrive titled.
+1. **Mount + open:** [`OBSIDIAN-SYNC.md`](./OBSIDIAN-SYNC.md) — install Google
+   Drive for Desktop, open `AI_Brain_Notes/` as a vault, open `_System/Home.md`.
+2. **Set up capture:** [`CAPTURE.md`](./CAPTURE.md) — install the Web Clipper
+   (import the templates in `tools/clipper-templates/`) and get a Keep token.
+3. **Turn on the 3am job:** [`AUTOMATION.md`](./AUTOMATION.md) — add the secrets
+   and run a dry run. After that it titles/tags/links new notes every morning.
+4. **Ad-hoc cleanup** any time with the [`INGESTION-PLAYBOOK.md`](./INGESTION-PLAYBOOK.md)
+   prompt (Claude + Drive MCP).

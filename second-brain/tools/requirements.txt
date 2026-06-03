@@ -1,0 +1,10 @@
+# Core (linking)
+anthropic>=0.40.0          # smart titles/tags/links (optional; falls back if unset)
+
+# Google Keep scraping
+gkeepapi>=0.16.0
+gpsoauth>=1.1.0            # to obtain the Keep master token (one-time)
+
+# Drive API backend (cloud / GitHub Actions only; not needed for local mode)
+google-api-python-client>=2.0.0
+google-auth>=2.0.0

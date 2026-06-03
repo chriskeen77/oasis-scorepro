@@ -5,6 +5,19 @@ The vault is a folder of real `.md` files in Google Drive
 backlinks, clickable `[[wikilinks]]`, tag pane — open that folder as an Obsidian
 vault. Pick whichever sync path fits your devices.
 
+> **Chosen setup:** the **Drive folder is canonical** (Option A below). You mount
+> it locally with Google Drive for Desktop and open it in Obsidian. The 3am job
+> writes into the same folder, so everything stays in one place.
+
+## Merging your existing `D:\obsidian\ck-vault`
+
+Your old vault is local and I can't read it from the cloud. To fold it in, copy
+its `.md` files into the mounted `AI_Brain_Notes` folder (drop loose notes into
+`00-Inbox/` so the nightly job titles/tags/links them; put already-organized
+notes into `Notes/`). Then either keep using `AI_Brain_Notes` as your only vault,
+or, if you'd rather keep working in `ck-vault`, point Google Drive for Desktop to
+sync into that path instead.
+
 ## Option A — Desktop via Google Drive for Desktop (simplest)
 
 1. Install **Google Drive for Desktop** and let it mount your Drive (including

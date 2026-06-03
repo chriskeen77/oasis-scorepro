@@ -5,6 +5,11 @@ vault. Run it with Claude (with the Google Drive MCP connected) whenever notes
 pile up. It is what prevents the "Untitled / nothing links" problem from
 returning.
 
+> **Note:** day-to-day this runs automatically — the 3am nightly job
+> (`AUTOMATION.md`) does the same scrape/title/tag/link work unattended. Use this
+> prompt for ad-hoc cleanup, big backlogs, or when you want Claude to reason about
+> trickier cross-links interactively.
+
 > **How to use:** Paste the prompt below into a Claude conversation (or save it as
 > the system prompt of a dedicated "Second Brain" Claude Project). Run it on a
 > cadence — e.g. weekly, or whenever you've captured a batch of notes.
@@ -22,7 +27,7 @@ Vault structure:
 - _System/  (Home.md, Conventions.md, Tags.md)
 - _Templates/  (Note Template.md, Source Template.md)
 - 00-Inbox/  (raw captures)
-- MOCs/  (Nursing School MOC, Creative Writing MOC, Projects MOC)
+- MOCs/  (Nursing School MOC, Creative Writing MOC, Projects MOC, Sources MOC)
 - Notes/  (processed atomic notes)
 
 GOAL: process unfiled captures so every note has a real title, YAML frontmatter,
@@ -51,7 +56,7 @@ STEP 3 — Create a markdown note in Notes/ with create_file using
     ---
     title: <Title>
     type: <type>
-    source: <keep|claude|perplexity|manual>
+    source: <keep|claude|gemini|perplexity|manual>
     source_url: <link to the original Drive file>
     created: <YYYY-MM-DD>
     tags: [type/<type>, <topic tags from Tags.md>, status/processed]

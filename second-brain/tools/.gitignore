@@ -1,0 +1,6 @@
+# Secrets and run artifacts - never commit these.
+.env
+*.log
+__pycache__/
+*.pyc
+service-account*.json

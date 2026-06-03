@@ -47,5 +47,13 @@ avoid `()` so `[[wikilinks]]` stay clean.
 ## 6. Tag taxonomy
 
 Keep it small. Type (`#type/...`), Status (`#status/...`), Topic
-(`#nursing`, `#writing`, `#project/...`), Source (`#src/...`). Full list in the
+(`#nursing`, `#writing`, `#project/...`), Source
+(`#src/keep`, `#src/claude`, `#src/gemini`, `#src/perplexity`). Full list in the
 vault's `_System/Tags.md`.
+
+## 7. Captured chats
+
+Chats clipped from Claude/Gemini/Perplexity use `type: source` and always carry
+`source_url` (the chat link) plus the matching `#src/<service>` tag, so a note is
+both self-contained (full text) and traceable back to the live conversation.
+The nightly job (see `AUTOMATION.md`) adds tags/links and files them.

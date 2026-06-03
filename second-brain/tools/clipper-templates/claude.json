@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "0.1.0",
+  "name": "Claude Chat",
+  "behavior": "create",
+  "noteNameFormat": "{{title}}",
+  "path": "00-Inbox",
+  "noteContentFormat": "# {{title}}\n\n**Chat:** [Open original]({{url}})\n\n{{content}}",
+  "properties": [
+    { "name": "title", "value": "{{title}}", "type": "text" },
+    { "name": "type", "value": "source", "type": "text" },
+    { "name": "source", "value": "claude", "type": "text" },
+    { "name": "source_url", "value": "{{url}}", "type": "text" },
+    { "name": "created", "value": "{{date}}", "type": "date" },
+    { "name": "tags", "value": "type/source,src/claude,status/inbox", "type": "multitext" },
+    { "name": "related", "value": "", "type": "multitext" }
+  ],
+  "triggers": ["https://claude.ai/chat/"]
+}

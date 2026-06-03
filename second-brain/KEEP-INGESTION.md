@@ -12,6 +12,10 @@ titleless Keep note is exported/copied into Drive, it becomes `Untitled document
 The fix is to **derive a title from the body at ingest time** — which is exactly
 what the Ingestion Playbook does, and what the script below does too.
 
+> **This is now implemented.** The nightly job's `tools/keep_scrape.py` pulls Keep
+> via `gkeepapi` and files notes automatically — see `CAPTURE.md` (token setup)
+> and `AUTOMATION.md` (scheduling). The options below are background / alternatives.
+
 ## Option A — Google Apps Script (recommended, automatable)
 
 Apps Script can read Keep (via the Keep API on a Workspace account, or via the

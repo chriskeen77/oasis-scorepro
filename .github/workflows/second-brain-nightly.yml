@@ -1,0 +1,43 @@
+name: Second Brain nightly
+
+# Runs the scrape + link job at ~3am US Central. GitHub cron is UTC and has no
+# DST awareness, so we fire at both 08:00 UTC (3am CDT) and 09:00 UTC (3am CST)
+# and let the job's --guard-central-3am flag no-op the run that isn't 3am local.
+on:
+  schedule:
+    - cron: "0 8 * * *"
+    - cron: "0 9 * * *"
+  workflow_dispatch:        # allow manual runs from the Actions tab
+    inputs:
+      dry_run:
+        description: "Preview without writing"
+        type: boolean
+        default: false
+
+concurrency:
+  group: second-brain-nightly
+  cancel-in-progress: false
+
+jobs:
+  nightly:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r second-brain/tools/requirements.txt
+
+      - name: Run nightly librarian
+        working-directory: second-brain/tools
+        env:
+          VAULT_MODE: drive
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          KEEP_EMAIL: ${{ secrets.KEEP_EMAIL }}
+          KEEP_MASTER_TOKEN: ${{ secrets.KEEP_MASTER_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python nightly.py --guard-central-3am ${{ inputs.dry_run && '--dry-run' || '' }}

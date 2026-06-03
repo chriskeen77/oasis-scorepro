@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-16"?>
+<!-- Import in Task Scheduler: Action > Import Task... then edit the path in the
+     Actions tab to point at your run-nightly.bat. Runs daily at 03:00 local and
+     wakes the PC to do so. -->
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>Second Brain nightly scrape + linking job (3am).</Description>
+    <URI>\SecondBrain-Nightly</URI>
+  </RegistrationInfo>
+  <Triggers>
+    <CalendarTrigger>
+      <StartBoundary>2026-01-01T03:00:00</StartBoundary>
+      <Enabled>true</Enabled>
+      <ScheduleByDay>
+        <DaysInterval>1</DaysInterval>
+      </ScheduleByDay>
+    </CalendarTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <WakeToRun>true</WakeToRun>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <ExecutionTimeLimit>PT1H</ExecutionTimeLimit>
+    <Enabled>true</Enabled>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>C:\path\to\oasis-scorepro\second-brain\tools\windows\run-nightly.bat</Command>
+    </Exec>
+  </Actions>
+</Task>

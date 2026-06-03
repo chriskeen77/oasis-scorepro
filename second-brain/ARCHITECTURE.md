@@ -85,8 +85,31 @@ update-metadata / delete** tool. Consequences:
 - Four seed notes converted from the orphaned "Untitled"/loose files:
   the two gerontology exams, the Vernon Russell vSim scenario, and *Becoming AEGIS*.
 
+## Source-aware layer
+
+Captures carry a `source:` field (`keep` / `claude` / `gemini` / `perplexity` /
+`manual`) and a `#src/...` tag. The **Sources MOC** is a provenance hub that
+complements the topic MOCs, and chat notes keep their `source_url` so they're
+traceable back to the live conversation.
+
+## Nightly automation
+
+A 3am US-Central job (`tools/nightly.py`) scrapes Keep + processes inbox captures
++ titles/tags/`[[wikilinks]]`/updates MOCs, running in **both** GitHub Actions
+(cloud, primary) and Windows Task Scheduler (local backup). It uses the Drive
+*API* (which, unlike the MCP, can update files) in cloud mode and the mounted
+folder in local mode. Linking uses Claude when `ANTHROPIC_API_KEY` is set, else
+deterministic rules. See `AUTOMATION.md` and `CAPTURE.md`.
+
+## Two manual vault edits
+
+Because the Drive MCP can't edit existing files, two seed files need a one-time
+tweak in Obsidian: add `[[Sources MOC]]` to `_System/Home.md`, and `#src/gemini`
+to `_System/Tags.md`. (The nightly job's Drive-API backend *can* edit files, so
+future edits are automatic.)
+
 ## What's left (run the playbook to finish)
 
 - Convert the remaining `🔲` items listed in each MOC.
 - Consolidate the many *Gridfall* drafts down to one canonical version.
-- Fix Google Keep capture at the source (`KEEP-INGESTION.md`).
+- Make the two manual vault edits above.
