@@ -40,6 +40,7 @@ being created again.
 | [`ARCHITECTURE.md`](./ARCHITECTURE.md) | Full design, the Drive findings, and known constraints |
 | [`CAPTURE.md`](./CAPTURE.md) | Get chats (Web Clipper) and Keep into the vault — with the source links |
 | [`AUTOMATION.md`](./AUTOMATION.md) | The **3am nightly job** (cloud + Windows) that scrapes, tags, and links |
+| [`SERVICE-ACCOUNT-SETUP.md`](./SERVICE-ACCOUNT-SETUP.md) | Click-by-click Google service account setup for the cloud job |
 | [`INGESTION-PLAYBOOK.md`](./INGESTION-PLAYBOOK.md) | The reusable Claude prompt for ad-hoc/manual processing |
 | [`CONVENTIONS.md`](./CONVENTIONS.md) | Note format, titling rules, folder roles |
 | [`OBSIDIAN-SYNC.md`](./OBSIDIAN-SYNC.md) | How to connect Obsidian to the Drive vault |

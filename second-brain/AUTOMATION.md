@@ -40,11 +40,11 @@ Either way a note is **never left "Untitled"** and is always linked to a MOC.
 
 ## Setup A — GitHub Actions (cloud, primary)
 
-1. **Service account for Drive** (so the cloud job can write the vault):
-   - In Google Cloud Console, create a project → enable the **Google Drive API**
-     → create a **service account** → create a JSON key.
-   - Open the Shared Drive that holds `AI_Brain_Notes/` and **share it with the
-     service account's email** as *Content manager*.
+1. **Service account for Drive** (so the cloud job can write the vault) —
+   full click-by-click in **[`SERVICE-ACCOUNT-SETUP.md`](./SERVICE-ACCOUNT-SETUP.md)**.
+   In short: create a GCP project → enable the Drive API → create a service
+   account + JSON key → share the Shared Drive with the SA email as
+   *Content manager*.
 2. **Add repo secrets** (Settings → Secrets and variables → Actions):
    - `GOOGLE_SERVICE_ACCOUNT_JSON` — the full key JSON.
    - `KEEP_EMAIL` — `chriskeen77@gmail.com`.
