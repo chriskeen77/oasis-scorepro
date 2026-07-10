@@ -39,6 +39,22 @@ start building. No key? Choose **demo mode** to explore the wizard with sample i
   streaming API, so the model plans the story before writing and the prose appears
   live as it's composed.
 
+## Run it on your phone (Cloudflare Workers)
+
+The app is a static build, so it deploys as a Cloudflare Worker with static
+assets — giving you an HTTPS `*.workers.dev` URL that works on any phone:
+
+```bash
+npx wrangler login      # one-time: opens a browser to link your Cloudflare account
+npm run cf:deploy       # builds and deploys → https://storytime.<your-subdomain>.workers.dev
+```
+
+To preview the Worker locally before deploying, run `npm run cf:dev`.
+
+Alternative for quick phone testing without deploying: keep `npm run dev` running
+and expose it with a Cloudflare quick tunnel — `npx cloudflared tunnel --url http://localhost:5173` —
+which prints a temporary public `trycloudflare.com` URL.
+
 ## Scripts
 
 | Command           | What it does             |
@@ -47,3 +63,5 @@ start building. No key? Choose **demo mode** to explore the wizard with sample i
 | `npm run build`   | Production build         |
 | `npm run preview` | Preview the built app    |
 | `npm run lint`    | Lint the source          |
+| `npm run cf:dev`  | Build + serve via a local Cloudflare Worker |
+| `npm run cf:deploy` | Build + deploy to Cloudflare Workers      |
