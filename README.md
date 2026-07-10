@@ -1,16 +1,49 @@
-# React + Vite
+# 📖 StoryTime — AI Story Maker
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+StoryTime builds a story with you, one ingredient at a time. For each ingredient —
+**genre, theme, location, characters, backstory, twist, and finishing details** —
+the AI brainstorms six summarized ideas to pick from, and you can always write
+your own option instead (or skip a step and let the storyteller decide). Once the
+recipe is complete, the AI thinks hard about structure, emotional arc, and where
+to hide the twist, then writes and streams your story live onto the page.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Guided 7-step wizard** — genre → theme → location → characters → backstory → twist → details
+- **AI-generated idea cards** — six fresh, story-aware options per step, summarized so they're easy to compare; regenerate for more
+- **Write your own** — every step accepts a custom option, and custom entries are given extra weight when the story is written
+- **Skip / surprise me** — leave any ingredient to the storyteller's judgment
+- **Review screen** — see the whole recipe, edit any ingredient, and pick a length (short tale / full story / epic)
+- **Deep-thinking story generation** — the final story uses Claude's adaptive thinking at high effort and streams in token by token
+- **Demo mode & graceful fallback** — explore the full flow with curated sample ideas if you don't have an API key or the API is unreachable
 
-## React Compiler
+## Getting started
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+npm install --legacy-peer-deps
+npm run dev
+```
 
-## Expanding the ESLint configuration
+Open the printed URL, paste your [Anthropic API key](https://platform.claude.com/)
+(it's stored only in your browser's localStorage and sent only to Anthropic), and
+start building. No key? Choose **demo mode** to explore the wizard with sample ideas.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## How it works
+
+- React + Vite single-page app, no backend — the browser talks to the Claude API
+  directly via the official `@anthropic-ai/sdk`.
+- Idea generation uses **structured outputs** (`output_config.format` with a JSON
+  schema) on `claude-opus-4-8`, feeding all previously chosen ingredients into each
+  brainstorm so options stay coherent with the story taking shape.
+- Story generation uses **adaptive thinking** with `effort: "high"` and the
+  streaming API, so the model plans the story before writing and the prose appears
+  live as it's composed.
+
+## Scripts
+
+| Command           | What it does             |
+| ----------------- | ------------------------ |
+| `npm run dev`     | Start the dev server     |
+| `npm run build`   | Production build         |
+| `npm run preview` | Preview the built app    |
+| `npm run lint`    | Lint the source          |
