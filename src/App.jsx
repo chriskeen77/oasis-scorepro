@@ -68,10 +68,45 @@ export default function SpeedReader() {
   const [docKey, setDocKey] = useState(null); // localStorage key for resume
   const [idx, setIdx] = useState(0);
   const [wpm, setWpm] = useState(0); // 0 = paused
+  // Word brightness 0..1: lifts how bright the letters away from the focus point stay
+  const [bright, setBright] = useState(() => {
+    const s = parseFloat(localStorage.getItem("bookmark:brightness"));
+    return Number.isFinite(s) ? Math.max(0, Math.min(1, s)) : 0.75;
+  });
   const timerRef = useRef(null);
   const sliderRef = useRef(null);
   const fileInputRef = useRef(null);
+  const brightRef = useRef(null);
   const prevWpmRef = useRef(250);
+
+  useEffect(() => {
+    localStorage.setItem("bookmark:brightness", String(bright));
+  }, [bright]);
+
+  const onBrightDown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const el = brightRef.current;
+    const apply = (ev) => {
+      const rect = el?.getBoundingClientRect();
+      if (!rect) return;
+      const clientY = ev.touches ? ev.touches[0].clientY : ev.clientY;
+      const y = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
+      setBright(1 - y);
+    };
+    apply(e);
+    const move = (ev) => { ev.preventDefault(); apply(ev); };
+    const up = () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+      window.removeEventListener("touchmove", move);
+      window.removeEventListener("touchend", up);
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+    window.addEventListener("touchmove", move, { passive: false });
+    window.addEventListener("touchend", up);
+  };
 
   const MAX_WPM = 1000;
   const MIN_WPM = 60;
@@ -488,8 +523,43 @@ export default function SpeedReader() {
             {/* Word display */}
             <div
               onClick={togglePause}
-              style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 20px", cursor: "pointer", userSelect: "none" }}
+              style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 20px", cursor: "pointer", userSelect: "none", position: "relative" }}
             >
+              {/* Brightness slider — vertical, right edge */}
+              <div
+                aria-label="Brightness"
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={onBrightDown}
+                onTouchStart={onBrightDown}
+                style={{
+                  position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
+                  width: 36, height: 170, display: "flex", flexDirection: "column",
+                  alignItems: "center", gap: 8, cursor: "pointer", touchAction: "none",
+                  padding: "6px 0",
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={rev ? "#fbbf24" : "#94a3b8"} strokeWidth="2" strokeLinecap="round" opacity="0.7">
+                  <circle cx="12" cy="12" r="4"/>
+                  <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+                </svg>
+                <div ref={brightRef} style={{ position: "relative", flex: 1, width: 3, borderRadius: 2, background: "rgba(51,65,85,0.5)" }}>
+                  <div style={{
+                    position: "absolute", bottom: 0, left: 0, right: 0,
+                    height: `${bright * 100}%`, borderRadius: 2,
+                    background: rev
+                      ? "linear-gradient(180deg, rgba(251,191,36,0.9), rgba(251,191,36,0.25))"
+                      : "linear-gradient(180deg, rgba(248,250,252,0.9), rgba(148,163,184,0.25))",
+                  }} />
+                  <div style={{
+                    position: "absolute", left: "50%", bottom: `${bright * 100}%`,
+                    transform: "translate(-50%, 50%)",
+                    width: 13, height: 13, borderRadius: "50%",
+                    background: rev ? "#fbbf24" : "#e2e8f0",
+                    boxShadow: `0 0 10px ${rev ? "rgba(251,191,36,0.5)" : "rgba(248,250,252,0.4)"}`,
+                  }} />
+                </div>
+              </div>
+
               <div style={{ textAlign: "center", width: "100%" }}>
                 {/* The word with focus letter highlighted */}
                 <div style={{ position: "relative", display: "inline-block" }}>
@@ -499,9 +569,11 @@ export default function SpeedReader() {
                       return currentWord.split("").map((ch, ci) => {
                         const dist = Math.abs(ci - focusIdx);
                         const maxDist = Math.max(focusIdx, len - 1 - focusIdx) || 1;
-                        const t = 1 - (dist / maxDist);
                         // Gradient: focal = bright warm white, edges fade to dim cool blue;
-                        // in reverse, focal = warm amber fading to dim bronze
+                        // in reverse, focal = warm amber fading to dim bronze.
+                        // Brightness lifts the floor: at bright=0.5 this matches the
+                        // original gradient; at 1 even edge letters stay near-focal.
+                        const t = (1 - dist / maxDist) + (dist / maxDist) * 0.7 * bright;
                         const focal = rev ? [253, 230, 168] : [248, 250, 252];
                         const edge = rev ? [146, 96, 30] : [71, 85, 105];
                         const r = Math.round(focal[0] * t + edge[0] * (1 - t));

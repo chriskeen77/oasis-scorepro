@@ -16,7 +16,9 @@ Everything is parsed locally in your browser — no file ever leaves your device
 
 ## Features
 
-- Focus-letter highlighting (optimal recognition point) with a smooth brightness gradient
+- Focus-letter highlighting (optimal recognition point) with a smooth brightness
+  gradient, plus a vertical brightness slider to control how bright the rest of
+  the word stays (persisted across sessions)
 - Adjustable speed via nebula slider, ±40 buttons, or arrow keys: 60–1000 WPM
   forward with 200 WPM at the slider midpoint; slide past the pause notch on
   the left to scrub in reverse (the UI turns amber)
