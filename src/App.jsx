@@ -75,6 +75,29 @@ export default function SpeedReader() {
 
   const MAX_WPM = 1000;
   const MIN_WPM = 60;
+  const MID_WPM = 200; // reading speed at the slider's midpoint
+  const REV_MAX = 600; // fastest reverse scrub speed
+  // Slider zones: [0, REV_END) reverse · [REV_END, FWD_START) pause · [FWD_START, 1] forward
+  const REV_END = 0.22;
+  const FWD_START = 0.28;
+
+  // Negative wpm means reading in reverse.
+  const wpmFromSlider = (x) => {
+    if (x < REV_END) {
+      const t = (REV_END - x) / REV_END;
+      return -Math.round(MIN_WPM + t * (REV_MAX - MIN_WPM));
+    }
+    if (x < FWD_START) return 0;
+    if (x <= 0.5) return Math.round(MIN_WPM + ((x - FWD_START) / (0.5 - FWD_START)) * (MID_WPM - MIN_WPM));
+    return Math.round(MID_WPM + ((x - 0.5) / 0.5) * (MAX_WPM - MID_WPM));
+  };
+
+  const sliderPos = (v) => {
+    if (v === 0) return (REV_END + FWD_START) / 2;
+    if (v < 0) return REV_END * (1 - (-v - MIN_WPM) / (REV_MAX - MIN_WPM));
+    if (v <= MID_WPM) return FWD_START + ((v - MIN_WPM) / (MID_WPM - MIN_WPM)) * (0.5 - FWD_START);
+    return 0.5 + ((v - MID_WPM) / (MAX_WPM - MID_WPM)) * 0.5;
+  };
 
   const loadFile = async (file) => {
     if (!file) return;
@@ -145,7 +168,7 @@ export default function SpeedReader() {
     if (timerRef.current) clearTimeout(timerRef.current);
     if (view !== "reading" || wpm === 0 || idx >= words.length) return;
 
-    const ms = (60 / wpm) * 1000;
+    const ms = (60 / Math.abs(wpm)) * 1000;
     // Add slight pause for punctuation
     const word = words[idx] || "";
     const punct = /[.!?;:]$/.test(word) ? 1.6 : /[,]$/.test(word) ? 1.25 : 1;
@@ -153,6 +176,13 @@ export default function SpeedReader() {
 
     timerRef.current = setTimeout(() => {
       setIdx((i) => {
+        if (wpm < 0) {
+          if (i <= 0) {
+            setWpm(0);
+            return 0;
+          }
+          return i - 1;
+        }
         if (i >= words.length - 1) {
           setWpm(0);
           return i;
@@ -165,7 +195,7 @@ export default function SpeedReader() {
   }, [idx, wpm, view, words]);
 
   const pct = words.length > 0 ? ((idx + 1) / words.length) * 100 : 0;
-  const sliderPct = wpm === 0 ? 0 : ((wpm - MIN_WPM) / (MAX_WPM - MIN_WPM)) * 100;
+  const sliderPct = sliderPos(wpm) * 100;
 
   const [touching, setTouching] = useState(false);
 
@@ -178,7 +208,9 @@ export default function SpeedReader() {
       if (!rect) return;
       const clientX = ev.touches ? ev.touches[0].clientX : ev.clientX;
       const x = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-      if (x < 0.03) { setWpm(0); } else { setWpm(Math.round(MIN_WPM + x * (MAX_WPM - MIN_WPM))); }
+      const v = wpmFromSlider(x);
+      setWpm(v);
+      if (v > 0) prevWpmRef.current = v;
     };
     apply(e);
     const move = (ev) => { ev.preventDefault(); apply(ev); };
@@ -196,25 +228,35 @@ export default function SpeedReader() {
   };
 
   const togglePause = () => {
-    if (idx >= words.length - 1) { restart(); return; }
+    if (idx >= words.length - 1 && wpm >= 0) { restart(); return; }
     if (wpm === 0) {
       setWpm(prevWpmRef.current || 250);
     } else {
-      prevWpmRef.current = wpm;
+      if (wpm > 0) prevWpmRef.current = wpm;
       setWpm(0);
     }
   };
 
+  // −40 / +40 move along the slider's axis: slower → pause → reverse, and back.
   const slowDown = () => {
-    if (wpm === 0) return;
-    const newWpm = wpm - 40;
-    if (newWpm < MIN_WPM) { prevWpmRef.current = MIN_WPM; setWpm(0); }
-    else { setWpm(newWpm); prevWpmRef.current = newWpm; }
+    if (wpm > MIN_WPM) {
+      const newWpm = Math.max(wpm - 40, MIN_WPM);
+      setWpm(newWpm); prevWpmRef.current = newWpm;
+    } else if (wpm > 0) {
+      prevWpmRef.current = wpm;
+      setWpm(0);
+    } else if (wpm === 0) {
+      if (idx > 0) setWpm(-MIN_WPM);
+    } else {
+      setWpm(Math.max(wpm - 40, -REV_MAX));
+    }
   };
 
   const speedUp = () => {
-    if (wpm === 0) {
-      const newWpm = Math.min((prevWpmRef.current || 250) + 40, MAX_WPM);
+    if (wpm < 0) {
+      setWpm(wpm + 40 > -MIN_WPM ? 0 : wpm + 40);
+    } else if (wpm === 0) {
+      const newWpm = Math.min(prevWpmRef.current || 250, MAX_WPM);
       prevWpmRef.current = newWpm;
       setWpm(newWpm);
       if (idx >= words.length - 1) setIdx(0);
@@ -226,7 +268,7 @@ export default function SpeedReader() {
   };
 
   const rewind10 = () => {
-    const currentWpm = wpm || prevWpmRef.current || 250;
+    const currentWpm = Math.abs(wpm) || prevWpmRef.current || 250;
     const wordsBack = Math.round((currentWpm / 60) * 10);
     setIdx((i) => Math.max(0, i - wordsBack));
   };
@@ -251,6 +293,12 @@ export default function SpeedReader() {
   // Find the "focus letter" - roughly 1/3 into the word
   const currentWord = words[idx] || "";
   const focusIdx = Math.min(Math.floor(currentWord.length * 0.3), currentWord.length - 1);
+
+  // Reverse mode shifts the whole reading UI from cool white to warm amber
+  const rev = wpm < 0;
+  const nebulaCore = rev ? "251,191,36" : "255,255,255";
+  const nebulaMid = rev ? "250,204,120" : "210,220,240";
+  const nebulaEdge = rev ? "217,160,60" : "180,200,230";
 
   // Which chapter are we in right now?
   const currentMark = marks.reduce((acc, m) => (idx >= m.start ? m : acc), marks[0]);
@@ -418,9 +466,9 @@ export default function SpeedReader() {
                 )}
               </div>
               <div style={{ textAlign: "right", flexShrink: 0 }}>
-                <div style={{ fontSize: 24, fontWeight: 800, color: wpm === 0 ? "#f87171" : "#34d399" }}>
-                  {wpm === 0 ? "Paused" : `${wpm}`}
-                  {wpm > 0 && <span style={{ fontSize: 12, color: "#64748b", marginLeft: 4 }}>WPM</span>}
+                <div style={{ fontSize: 24, fontWeight: 800, color: wpm === 0 ? "#f87171" : rev ? "#fbbf24" : "#34d399" }}>
+                  {wpm === 0 ? "Paused" : rev ? `◀ ${-wpm}` : `${wpm}`}
+                  {wpm !== 0 && <span style={{ fontSize: 12, color: "#64748b", marginLeft: 4 }}>WPM</span>}
                 </div>
               </div>
             </div>
@@ -428,11 +476,11 @@ export default function SpeedReader() {
             {/* Progress bar */}
             <div style={{ padding: "0 20px", marginBottom: 4 }}>
               <div style={{ background: "rgba(30,41,59,0.5)", borderRadius: 4, height: 4, overflow: "hidden" }}>
-                <div style={{ width: `${pct}%`, height: "100%", background: "linear-gradient(90deg, #3b82f6, #8b5cf6, #34d399)", borderRadius: 4, transition: "width 0.1s" }} />
+                <div style={{ width: `${pct}%`, height: "100%", background: rev ? "linear-gradient(90deg, #b45309, #fbbf24)" : "linear-gradient(90deg, #3b82f6, #8b5cf6, #34d399)", borderRadius: 4, transition: "width 0.1s" }} />
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: 10, color: "#475569" }}>
                 <span>{idx + 1} / {words.length}</span>
-                <span>{fmtTime(words.length - idx, wpm || prevWpmRef.current || 250)} left</span>
+                <span>{fmtTime(words.length - idx, wpm > 0 ? wpm : prevWpmRef.current || 250)} left</span>
                 <span>{Math.round(pct)}%</span>
               </div>
             </div>
@@ -452,12 +500,15 @@ export default function SpeedReader() {
                         const dist = Math.abs(ci - focusIdx);
                         const maxDist = Math.max(focusIdx, len - 1 - focusIdx) || 1;
                         const t = 1 - (dist / maxDist);
-                        // Gradient: focal = bright warm white, edges fade to dim cool blue
-                        const r = Math.round(248 * t + 71 * (1 - t));
-                        const g = Math.round(250 * t + 85 * (1 - t));
-                        const b = Math.round(252 * t + 105 * (1 - t));
+                        // Gradient: focal = bright warm white, edges fade to dim cool blue;
+                        // in reverse, focal = warm amber fading to dim bronze
+                        const focal = rev ? [253, 230, 168] : [248, 250, 252];
+                        const edge = rev ? [146, 96, 30] : [71, 85, 105];
+                        const r = Math.round(focal[0] * t + edge[0] * (1 - t));
+                        const g = Math.round(focal[1] * t + edge[1] * (1 - t));
+                        const b = Math.round(focal[2] * t + edge[2] * (1 - t));
                         const opacity = 0.35 + 0.65 * t;
-                        const glow = t > 0.7 ? `0 0 ${Math.round(t * 25)}px rgba(248,250,252,${t * 0.3})` : "none";
+                        const glow = t > 0.7 ? `0 0 ${Math.round(t * 25)}px rgba(${focal[0]},${focal[1]},${focal[2]},${t * 0.3})` : "none";
                         return (
                           <span key={ci} style={{
                             color: `rgba(${r},${g},${b},${opacity})`,
@@ -506,7 +557,7 @@ export default function SpeedReader() {
                 background: "rgba(12,18,30,0.8)", border: "1px solid rgba(30,41,59,0.5)",
                 borderRadius: 10, color: "#94a3b8", padding: "8px 18px", fontSize: 13,
                 fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
-                opacity: wpm === 0 ? 0.4 : 1,
+                opacity: wpm === 0 && idx === 0 ? 0.4 : 1,
               }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M5 12h14"/><path d="M12 5l-7 7 7 7"/>
@@ -546,9 +597,24 @@ export default function SpeedReader() {
                     width: `${sliderPct}%`,
                     background: wpm === 0
                       ? "rgba(15,23,42,0.3)"
-                      : "linear-gradient(90deg, rgba(255,255,255,0.01), rgba(255,255,255,0.03))",
+                      : `linear-gradient(90deg, rgba(${nebulaCore},0.01), rgba(${nebulaCore},0.03))`,
                     transition: touching ? "none" : "width 0.05s",
                   }} />
+
+                  {/* Pause notch between reverse and forward zones */}
+                  <div style={{
+                    position: "absolute", left: `${((REV_END + FWD_START) / 2) * 100}%`,
+                    top: 16, bottom: 16, width: 1,
+                    background: "rgba(148,163,184,0.25)", pointerEvents: "none",
+                  }} />
+
+                  {/* Reverse-zone hint */}
+                  <div style={{
+                    position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)",
+                    fontSize: 9, letterSpacing: 1, pointerEvents: "none",
+                    color: rev ? "rgba(251,191,36,0.75)" : "rgba(148,163,184,0.3)",
+                    transition: "color 0.3s",
+                  }}>◀◀</div>
 
                   {/* Nebula glow — wide diffuse cloud */}
                   <div style={{
@@ -560,8 +626,8 @@ export default function SpeedReader() {
                     background: wpm === 0
                       ? "radial-gradient(ellipse 100% 120%, rgba(148,163,184,0.15) 0%, rgba(120,140,170,0.08) 30%, transparent 65%)"
                       : touching
-                        ? "radial-gradient(ellipse 100% 130%, rgba(255,255,255,0.4) 0%, rgba(210,220,240,0.18) 25%, rgba(180,200,230,0.07) 50%, transparent 70%)"
-                        : "radial-gradient(ellipse 100% 130%, rgba(255,255,255,0.25) 0%, rgba(210,220,240,0.12) 25%, rgba(180,200,230,0.05) 50%, transparent 70%)",
+                        ? `radial-gradient(ellipse 100% 130%, rgba(${nebulaCore},0.4) 0%, rgba(${nebulaMid},0.18) 25%, rgba(${nebulaEdge},0.07) 50%, transparent 70%)`
+                        : `radial-gradient(ellipse 100% 130%, rgba(${nebulaCore},0.25) 0%, rgba(${nebulaMid},0.12) 25%, rgba(${nebulaEdge},0.05) 50%, transparent 70%)`,
                     filter: "blur(8px)",
                     animation: touching ? "none" : "nebulaPulse 4s ease-in-out infinite",
                     transition: touching ? "left 0.02s" : "left 0.05s, background 0.5s",
@@ -578,8 +644,8 @@ export default function SpeedReader() {
                     background: wpm === 0
                       ? "radial-gradient(ellipse 80% 100%, rgba(148,163,184,0.18) 0%, transparent 60%)"
                       : touching
-                        ? "radial-gradient(ellipse 80% 110%, rgba(255,255,255,0.45) 0%, rgba(230,235,245,0.15) 35%, transparent 65%)"
-                        : "radial-gradient(ellipse 80% 110%, rgba(255,255,255,0.28) 0%, rgba(230,235,245,0.1) 35%, transparent 65%)",
+                        ? `radial-gradient(ellipse 80% 110%, rgba(${nebulaCore},0.45) 0%, rgba(${nebulaMid},0.15) 35%, transparent 65%)`
+                        : `radial-gradient(ellipse 80% 110%, rgba(${nebulaCore},0.28) 0%, rgba(${nebulaMid},0.1) 35%, transparent 65%)`,
                     filter: "blur(4px)",
                     animation: touching ? "none" : "nebulaPulse 4s ease-in-out infinite 0.5s",
                     transition: touching ? "left 0.02s" : "left 0.05s",
@@ -595,7 +661,7 @@ export default function SpeedReader() {
                     borderRadius: "50%",
                     background: wpm === 0
                       ? "radial-gradient(circle, rgba(148,163,184,0.25) 0%, transparent 100%)"
-                      : "radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.2) 40%, transparent 100%)",
+                      : `radial-gradient(circle, rgba(${nebulaCore},0.8) 0%, rgba(${nebulaCore},0.2) 40%, transparent 100%)`,
                     filter: "blur(1px)",
                     animation: touching ? "none" : "nebulaPulse 4s ease-in-out infinite 1s",
                     transition: touching ? "left 0.02s" : "left 0.05s",

@@ -17,7 +17,9 @@ Everything is parsed locally in your browser — no file ever leaves your device
 ## Features
 
 - Focus-letter highlighting (optimal recognition point) with a smooth brightness gradient
-- Adjustable speed: 60–1000 WPM via nebula slider, ±40 buttons, or arrow keys
+- Adjustable speed via nebula slider, ±40 buttons, or arrow keys: 60–1000 WPM
+  forward with 200 WPM at the slider midpoint; slide past the pause notch on
+  the left to scrub in reverse (the UI turns amber)
 - Punctuation-aware pacing (longer pauses at sentence ends)
 - Tap or press space to pause/resume, `←` to rewind 10 seconds, `Esc` to go back
 - Per-document resume — reopen a book and continue where you left off
