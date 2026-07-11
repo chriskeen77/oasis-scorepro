@@ -1,16 +1,37 @@
-# React + Vite
+# BookMark — RSVP Speed Reader
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Read books, PDFs, and articles one word at a time with Rapid Serial Visual
+Presentation (RSVP). Your eyes stay fixed while words flash at a focal point,
+letting you read at 250–1000 words per minute.
 
-Currently, two official plugins are available:
+## Supported inputs
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **EPUB** — full books with chapter navigation (parsed in the browser via JSZip)
+- **PDF** — text extracted with pdf.js
+- **Markdown** (`.md`) — syntax stripped, split into chapters by headings, code blocks skipped
+- **HTML** and plain **TXT**
+- Or just paste text directly
 
-## React Compiler
+Everything is parsed locally in your browser — no file ever leaves your device.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Features
 
-## Expanding the ESLint configuration
+- Focus-letter highlighting (optimal recognition point) with a smooth brightness gradient
+- Adjustable speed: 60–1000 WPM via nebula slider, ±40 buttons, or arrow keys
+- Punctuation-aware pacing (longer pauses at sentence ends)
+- Tap or press space to pause/resume, `←` to rewind 10 seconds, `Esc` to go back
+- Per-document resume — reopen a book and continue where you left off
+- Chapter list for EPUBs and Markdown files: read one chapter or the whole book
+- Progress bar with time-remaining estimate
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Development
+
+```bash
+npm install --legacy-peer-deps
+npm run dev       # local dev server
+npm run build     # production build to dist/
+npm run preview   # serve the production build
+```
+
+Built with React 19 + Vite. PDF and EPUB parsers are lazy-loaded so the
+initial bundle stays small.

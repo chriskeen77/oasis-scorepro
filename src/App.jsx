@@ -1,0 +1,619 @@
+import { useState, useRef, useEffect } from "react";
+import { parseFile, countWords } from "./parsers.js";
+
+const SAMPLE = `The art of speed reading has fascinated researchers for decades. Traditional reading forces your eyes to scan left to right, line by line, wasting time on saccadic movements. But what if you could eliminate that entirely? Rapid Serial Visual Presentation, or RSVP, flashes words one at a time at a fixed point. Your eyes stay locked in place while your brain processes language at remarkable speeds. Most people read around 250 words per minute with traditional methods. With practice, RSVP readers can reach 500, 700, even 1000 words per minute while maintaining comprehension. The key is letting go of subvocalization — that inner voice that reads along with you. At higher speeds, your brain shifts from hearing words to absorbing meaning directly. Start slow, build confidence, and gradually increase your speed. You might be surprised how fast you can go.`;
+
+const ACCEPT = ".txt,.md,.markdown,.mdown,.pdf,.epub,.html,.htm,.xhtml";
+
+const AtomSVG = () => (
+  <svg viewBox="0 0 400 400" fill="none" style={{ width: "100%", height: "100%" }}>
+    <defs>
+      <linearGradient id="mo1" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#e2e8f0"/><stop offset="25%" stopColor="#94a3b8"/>
+        <stop offset="50%" stopColor="#f1f5f9"/><stop offset="75%" stopColor="#64748b"/>
+        <stop offset="100%" stopColor="#cbd5e1"/>
+      </linearGradient>
+      <linearGradient id="mo2" x1="100%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#c4b5fd"/><stop offset="30%" stopColor="#e2e8f0"/>
+        <stop offset="60%" stopColor="#a5b4fc"/><stop offset="100%" stopColor="#f1f5f9"/>
+      </linearGradient>
+      <linearGradient id="mo3" x1="0%" y1="100%" x2="100%" y2="0%">
+        <stop offset="0%" stopColor="#6ee7b7"/><stop offset="30%" stopColor="#e2e8f0"/>
+        <stop offset="60%" stopColor="#5eead4"/><stop offset="100%" stopColor="#f1f5f9"/>
+      </linearGradient>
+      <radialGradient id="mc" cx="40%" cy="35%">
+        <stop offset="0%" stopColor="#f8fafc"/><stop offset="40%" stopColor="#cbd5e1"/>
+        <stop offset="70%" stopColor="#94a3b8"/><stop offset="100%" stopColor="#475569"/>
+      </radialGradient>
+      <radialGradient id="eb"><stop offset="0%" stopColor="#fff"/><stop offset="30%" stopColor="#60a5fa"/><stop offset="100%" stopColor="#3b82f6"/></radialGradient>
+      <radialGradient id="ep"><stop offset="0%" stopColor="#fff"/><stop offset="30%" stopColor="#a78bfa"/><stop offset="100%" stopColor="#8b5cf6"/></radialGradient>
+      <radialGradient id="eg"><stop offset="0%" stopColor="#fff"/><stop offset="30%" stopColor="#34d399"/><stop offset="100%" stopColor="#10b981"/></radialGradient>
+      <filter id="gl"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    </defs>
+    <circle cx="200" cy="200" r="22" fill="url(#mc)" filter="url(#gl)"/>
+    <circle cx="193" cy="193" r="6" fill="rgba(255,255,255,0.4)"/>
+    <ellipse cx="200" cy="200" rx="170" ry="60" stroke="url(#mo1)" strokeWidth="4.5"/>
+    <circle cx="370" cy="200" r="11" fill="url(#eb)" filter="url(#gl)"/>
+    <ellipse cx="200" cy="200" rx="170" ry="60" stroke="url(#mo2)" strokeWidth="4.5" transform="rotate(60 200 200)"/>
+    <circle cx="285" cy="53" r="11" fill="url(#ep)" filter="url(#gl)"/>
+    <ellipse cx="200" cy="200" rx="170" ry="60" stroke="url(#mo3)" strokeWidth="4.5" transform="rotate(120 200 200)"/>
+    <circle cx="115" cy="53" r="11" fill="url(#eg)" filter="url(#gl)"/>
+  </svg>
+);
+
+const Panel = ({ children, style }) => (
+  <div style={{
+    background: "rgba(12,18,30,0.75)", border: "1px solid rgba(51,65,85,0.5)",
+    borderRadius: 14, padding: "16px 18px", backdropFilter: "blur(12px)", ...style,
+  }}>{children}</div>
+);
+
+const fmtTime = (words, wpm = 250) => {
+  const mins = words / wpm;
+  if (mins < 1) return "under a minute";
+  if (mins < 60) return `~${Math.round(mins)} min`;
+  return `~${Math.floor(mins / 60)}h ${Math.round(mins % 60)}m`;
+};
+
+export default function SpeedReader() {
+  const [view, setView] = useState("input"); // input | reading
+  const [text, setText] = useState(SAMPLE);
+  const [doc, setDoc] = useState(null); // { title, chapters: [{title, text}] }
+  const [parsing, setParsing] = useState(false);
+  const [parseError, setParseError] = useState(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [words, setWords] = useState([]);
+  const [marks, setMarks] = useState([]); // chapter boundaries: [{start, title}]
+  const [readingTitle, setReadingTitle] = useState("");
+  const [docKey, setDocKey] = useState(null); // localStorage key for resume
+  const [idx, setIdx] = useState(0);
+  const [wpm, setWpm] = useState(0); // 0 = paused
+  const timerRef = useRef(null);
+  const sliderRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const prevWpmRef = useRef(250);
+
+  const MAX_WPM = 1000;
+  const MIN_WPM = 60;
+
+  const loadFile = async (file) => {
+    if (!file) return;
+    setParsing(true);
+    setParseError(null);
+    try {
+      const parsed = await parseFile(file);
+      const total = parsed.chapters.reduce((n, c) => n + countWords(c.text), 0);
+      if (total === 0) throw new Error("No readable text found in this file");
+      setDoc(parsed);
+    } catch (err) {
+      setParseError(err.message || "Could not read this file");
+      setDoc(null);
+    } finally {
+      setParsing(false);
+    }
+  };
+
+  const onDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    loadFile(e.dataTransfer.files?.[0]);
+  };
+
+  // Begin reading. chapterIdx === null → whole document / pasted text
+  const startReading = (chapterIdx = null) => {
+    let w = [];
+    let boundaries = [];
+    let title = "";
+    let key = null;
+    if (doc) {
+      const chapters = chapterIdx === null ? doc.chapters : [doc.chapters[chapterIdx]];
+      for (const c of chapters) {
+        const cw = c.text.trim().split(/\s+/).filter(Boolean);
+        boundaries.push({ start: w.length, title: c.title });
+        w = w.concat(cw);
+      }
+      title = doc.title;
+      key = `bookmark:${doc.title}:${chapterIdx === null ? "all" : chapterIdx}:${w.length}`;
+    } else {
+      w = text.trim().split(/\s+/).filter(Boolean);
+      boundaries = [{ start: 0, title: "" }];
+      title = "Pasted text";
+    }
+    if (w.length === 0) return;
+    setWords(w);
+    setMarks(boundaries);
+    setReadingTitle(title);
+    setDocKey(key);
+    let startAt = 0;
+    if (key) {
+      const saved = parseInt(localStorage.getItem(key) || "0", 10);
+      if (saved > 0 && saved < w.length - 1) startAt = saved;
+    }
+    setIdx(startAt);
+    setWpm(250);
+    prevWpmRef.current = 250;
+    setView("reading");
+  };
+
+  // Persist position so long documents resume where you left off
+  useEffect(() => {
+    if (view === "reading" && docKey) localStorage.setItem(docKey, String(idx));
+  }, [idx, view, docKey]);
+
+  // Timer loop
+  useEffect(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (view !== "reading" || wpm === 0 || idx >= words.length) return;
+
+    const ms = (60 / wpm) * 1000;
+    // Add slight pause for punctuation
+    const word = words[idx] || "";
+    const punct = /[.!?;:]$/.test(word) ? 1.6 : /[,]$/.test(word) ? 1.25 : 1;
+    const delay = ms * punct;
+
+    timerRef.current = setTimeout(() => {
+      setIdx((i) => {
+        if (i >= words.length - 1) {
+          setWpm(0);
+          return i;
+        }
+        return i + 1;
+      });
+    }, delay);
+
+    return () => clearTimeout(timerRef.current);
+  }, [idx, wpm, view, words]);
+
+  const pct = words.length > 0 ? ((idx + 1) / words.length) * 100 : 0;
+  const sliderPct = wpm === 0 ? 0 : ((wpm - MIN_WPM) / (MAX_WPM - MIN_WPM)) * 100;
+
+  const [touching, setTouching] = useState(false);
+
+  const onSliderDown = (e) => {
+    e.preventDefault();
+    setTouching(true);
+    const el = sliderRef.current;
+    const apply = (ev) => {
+      const rect = el?.getBoundingClientRect();
+      if (!rect) return;
+      const clientX = ev.touches ? ev.touches[0].clientX : ev.clientX;
+      const x = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      if (x < 0.03) { setWpm(0); } else { setWpm(Math.round(MIN_WPM + x * (MAX_WPM - MIN_WPM))); }
+    };
+    apply(e);
+    const move = (ev) => { ev.preventDefault(); apply(ev); };
+    const up = () => {
+      setTouching(false);
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+      window.removeEventListener("touchmove", move);
+      window.removeEventListener("touchend", up);
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+    window.addEventListener("touchmove", move, { passive: false });
+    window.addEventListener("touchend", up);
+  };
+
+  const togglePause = () => {
+    if (idx >= words.length - 1) { restart(); return; }
+    if (wpm === 0) {
+      setWpm(prevWpmRef.current || 250);
+    } else {
+      prevWpmRef.current = wpm;
+      setWpm(0);
+    }
+  };
+
+  const slowDown = () => {
+    if (wpm === 0) return;
+    const newWpm = wpm - 40;
+    if (newWpm < MIN_WPM) { prevWpmRef.current = MIN_WPM; setWpm(0); }
+    else { setWpm(newWpm); prevWpmRef.current = newWpm; }
+  };
+
+  const speedUp = () => {
+    if (wpm === 0) {
+      const newWpm = Math.min((prevWpmRef.current || 250) + 40, MAX_WPM);
+      prevWpmRef.current = newWpm;
+      setWpm(newWpm);
+      if (idx >= words.length - 1) setIdx(0);
+    } else {
+      const newWpm = Math.min(wpm + 40, MAX_WPM);
+      setWpm(newWpm);
+      prevWpmRef.current = newWpm;
+    }
+  };
+
+  const rewind10 = () => {
+    const currentWpm = wpm || prevWpmRef.current || 250;
+    const wordsBack = Math.round((currentWpm / 60) * 10);
+    setIdx((i) => Math.max(0, i - wordsBack));
+  };
+
+  const restart = () => { setIdx(0); if (wpm === 0) setWpm(prevWpmRef.current || 250); };
+  const back = () => { setView("input"); setWpm(0); setIdx(0); };
+
+  // Keyboard controls
+  useEffect(() => {
+    if (view !== "reading") return;
+    const onKey = (e) => {
+      if (e.key === " ") { e.preventDefault(); togglePause(); }
+      else if (e.key === "ArrowLeft") { e.preventDefault(); rewind10(); }
+      else if (e.key === "ArrowUp" || e.key === "ArrowRight") { e.preventDefault(); speedUp(); }
+      else if (e.key === "ArrowDown") { e.preventDefault(); slowDown(); }
+      else if (e.key === "Escape") { back(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
+  // Find the "focus letter" - roughly 1/3 into the word
+  const currentWord = words[idx] || "";
+  const focusIdx = Math.min(Math.floor(currentWord.length * 0.3), currentWord.length - 1);
+
+  // Which chapter are we in right now?
+  const currentMark = marks.reduce((acc, m) => (idx >= m.start ? m : acc), marks[0]);
+
+  const totalDocWords = doc ? doc.chapters.reduce((n, c) => n + countWords(c.text), 0) : 0;
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#080c14", color: "#e2e8f0", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", position: "relative", overflow: "hidden" }}>
+      {/* Background */}
+      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0 }}>
+        <div style={{ position: "absolute", width: "50vmax", height: "50vmax", background: "radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%)", top: "-15vmax", right: "-10vmax" }} />
+        <div style={{ position: "absolute", width: "45vmax", height: "45vmax", background: "radial-gradient(circle, rgba(52,211,153,0.05) 0%, transparent 70%)", bottom: "-12vmax", left: "-10vmax" }} />
+        <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(148,163,184,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.02) 1px, transparent 1px)", backgroundSize: "36px 36px" }} />
+        <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "70vmin", height: "70vmin", opacity: 0.06 }}>
+          <AtomSVG />
+        </div>
+      </div>
+
+      <div style={{ position: "relative", zIndex: 1, height: "100vh", display: "flex", flexDirection: "column" }}>
+
+        {/* INPUT VIEW */}
+        {view === "input" && (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", maxWidth: 600, margin: "0 auto", padding: "16px 16px", width: "100%", overflowY: "auto" }}>
+            {/* Header */}
+            <div style={{ textAlign: "center", marginBottom: 12 }}>
+              <div style={{ display: "inline-block", background: "linear-gradient(135deg, rgba(59,130,246,0.2), rgba(139,92,246,0.2))", border: "1px solid rgba(59,130,246,0.3)", borderRadius: 100, padding: "4px 14px", fontSize: 10, fontWeight: 700, color: "#93c5fd", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 6 }}>
+                RSVP Reader
+              </div>
+              <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0, letterSpacing: -0.5 }}>
+                <span style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6, #34d399)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>BookMark</span>
+              </h1>
+              <p style={{ color: "#64748b", fontSize: 12, marginTop: 2 }}>Read books, PDFs, and articles word by word</p>
+            </div>
+
+            {/* Upload zone */}
+            <input
+              ref={fileInputRef} type="file" accept={ACCEPT} style={{ display: "none" }}
+              onChange={(e) => { loadFile(e.target.files?.[0]); e.target.value = ""; }}
+            />
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={onDrop}
+              style={{
+                border: `1.5px dashed ${dragOver ? "#3b82f6" : "rgba(51,65,85,0.7)"}`,
+                background: dragOver ? "rgba(59,130,246,0.08)" : "rgba(12,18,30,0.5)",
+                borderRadius: 14, padding: "18px 16px", textAlign: "center", cursor: "pointer",
+                marginBottom: 10, transition: "border-color 0.15s, background 0.15s",
+              }}
+            >
+              {parsing ? (
+                <div style={{ fontSize: 13, color: "#93c5fd", fontWeight: 600 }}>Reading file…</div>
+              ) : (
+                <>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#cbd5e1", marginBottom: 3 }}>
+                    Drop a file or tap to browse
+                  </div>
+                  <div style={{ fontSize: 11, color: "#64748b" }}>
+                    EPUB &nbsp;·&nbsp; PDF &nbsp;·&nbsp; Markdown &nbsp;·&nbsp; HTML &nbsp;·&nbsp; TXT
+                  </div>
+                </>
+              )}
+            </div>
+
+            {parseError && (
+              <div style={{ background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 10, padding: "10px 14px", fontSize: 12, color: "#fca5a5", marginBottom: 10 }}>
+                {parseError}
+              </div>
+            )}
+
+            {/* Loaded document card */}
+            {doc ? (
+              <Panel style={{ flex: 1, display: "flex", flexDirection: "column", marginBottom: 10, minHeight: 0 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: "#f1f5f9", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.title}</div>
+                    <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                      {totalDocWords.toLocaleString()} words · {fmtTime(totalDocWords)} at 250 WPM
+                    </div>
+                  </div>
+                  <button onClick={() => { setDoc(null); setParseError(null); }} style={{
+                    background: "rgba(30,41,59,0.6)", border: "1px solid rgba(51,65,85,0.5)",
+                    borderRadius: 8, color: "#94a3b8", padding: "4px 10px", fontSize: 11,
+                    fontWeight: 600, cursor: "pointer", flexShrink: 0, marginLeft: 10,
+                  }}>
+                    ✕ Clear
+                  </button>
+                </div>
+
+                {doc.chapters.length > 1 && (
+                  <div style={{ flex: 1, overflowY: "auto", minHeight: 0, margin: "0 -6px", padding: "0 6px" }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: 1, margin: "6px 0" }}>
+                      {doc.chapters.length} chapters — tap one to read it
+                    </div>
+                    {doc.chapters.map((c, i) => (
+                      <button key={i} onClick={() => startReading(i)} style={{
+                        display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10,
+                        width: "100%", textAlign: "left", background: "rgba(15,23,42,0.5)",
+                        border: "1px solid rgba(51,65,85,0.35)", borderRadius: 8,
+                        color: "#cbd5e1", padding: "9px 12px", fontSize: 13, cursor: "pointer",
+                        marginBottom: 5, fontFamily: "inherit",
+                      }}>
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 600 }}>{c.title}</span>
+                        <span style={{ fontSize: 10, color: "#475569", flexShrink: 0 }}>{countWords(c.text).toLocaleString()} w</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </Panel>
+            ) : (
+              <Panel style={{ flex: 1, display: "flex", flexDirection: "column", marginBottom: 10, minHeight: 0 }}>
+                <label style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, display: "block" }}>
+                  Or paste your text
+                </label>
+                <textarea
+                  value={text} onChange={(e) => setText(e.target.value)}
+                  placeholder="Paste a book chapter, article, or any text here..."
+                  style={{
+                    flex: 1, width: "100%", minHeight: 120, background: "rgba(15,23,42,0.6)",
+                    border: "1px solid rgba(51,65,85,0.5)", borderRadius: 8, color: "#e2e8f0",
+                    padding: 12, fontSize: 14, resize: "none", outline: "none", boxSizing: "border-box",
+                    lineHeight: 1.6, fontFamily: "inherit",
+                  }}
+                />
+                <div style={{ marginTop: 4, fontSize: 11, color: "#475569" }}>
+                  {countWords(text)} words
+                </div>
+              </Panel>
+            )}
+
+            <button
+              onClick={() => startReading(null)}
+              disabled={parsing || (!doc && !text.trim())}
+              style={{
+                width: "100%", padding: "14px 0", borderRadius: 10, border: "none",
+                fontSize: 16, fontWeight: 700, cursor: doc || text.trim() ? "pointer" : "default", flexShrink: 0,
+                background: doc || text.trim() ? "linear-gradient(135deg, #3b82f6, #8b5cf6)" : "rgba(30,41,59,0.5)",
+                color: doc || text.trim() ? "#fff" : "#475569",
+                boxShadow: doc || text.trim() ? "0 4px 20px rgba(59,130,246,0.3)" : "none",
+                marginBottom: 12, fontFamily: "inherit",
+              }}
+            >
+              {doc && doc.chapters.length > 1 ? "Read Entire Book" : "Start Reading"}
+            </button>
+          </div>
+        )}
+
+        {/* READING VIEW */}
+        {view === "reading" && (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", width: "100%" }}>
+            {/* Top bar */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px 8px", gap: 12 }}>
+              <button onClick={back} style={{
+                background: "rgba(30,41,59,0.6)", border: "1px solid rgba(51,65,85,0.5)",
+                borderRadius: 8, color: "#94a3b8", padding: "6px 14px", fontSize: 12,
+                fontWeight: 600, cursor: "pointer", flexShrink: 0,
+              }}>
+                ← Back
+              </button>
+              <div style={{ minWidth: 0, textAlign: "center", flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#94a3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{readingTitle}</div>
+                {currentMark?.title && marks.length > 1 && (
+                  <div style={{ fontSize: 10, color: "#475569", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentMark.title}</div>
+                )}
+              </div>
+              <div style={{ textAlign: "right", flexShrink: 0 }}>
+                <div style={{ fontSize: 24, fontWeight: 800, color: wpm === 0 ? "#f87171" : "#34d399" }}>
+                  {wpm === 0 ? "Paused" : `${wpm}`}
+                  {wpm > 0 && <span style={{ fontSize: 12, color: "#64748b", marginLeft: 4 }}>WPM</span>}
+                </div>
+              </div>
+            </div>
+
+            {/* Progress bar */}
+            <div style={{ padding: "0 20px", marginBottom: 4 }}>
+              <div style={{ background: "rgba(30,41,59,0.5)", borderRadius: 4, height: 4, overflow: "hidden" }}>
+                <div style={{ width: `${pct}%`, height: "100%", background: "linear-gradient(90deg, #3b82f6, #8b5cf6, #34d399)", borderRadius: 4, transition: "width 0.1s" }} />
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: 10, color: "#475569" }}>
+                <span>{idx + 1} / {words.length}</span>
+                <span>{fmtTime(words.length - idx, wpm || prevWpmRef.current || 250)} left</span>
+                <span>{Math.round(pct)}%</span>
+              </div>
+            </div>
+
+            {/* Word display */}
+            <div
+              onClick={togglePause}
+              style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 20px", cursor: "pointer", userSelect: "none" }}
+            >
+              <div style={{ textAlign: "center", width: "100%" }}>
+                {/* The word with focus letter highlighted */}
+                <div style={{ position: "relative", display: "inline-block" }}>
+                  <div style={{ fontSize: "clamp(28px, 9vw, 58px)", fontWeight: 700, letterSpacing: 3, fontFamily: "'Georgia', 'Times New Roman', serif", minHeight: "1.2em", transition: "opacity 0.1s", opacity: wpm === 0 && idx < words.length - 1 ? 0.5 : 1 }}>
+                    {(() => {
+                      const len = currentWord.length;
+                      return currentWord.split("").map((ch, ci) => {
+                        const dist = Math.abs(ci - focusIdx);
+                        const maxDist = Math.max(focusIdx, len - 1 - focusIdx) || 1;
+                        const t = 1 - (dist / maxDist);
+                        // Gradient: focal = bright warm white, edges fade to dim cool blue
+                        const r = Math.round(248 * t + 71 * (1 - t));
+                        const g = Math.round(250 * t + 85 * (1 - t));
+                        const b = Math.round(252 * t + 105 * (1 - t));
+                        const opacity = 0.35 + 0.65 * t;
+                        const glow = t > 0.7 ? `0 0 ${Math.round(t * 25)}px rgba(248,250,252,${t * 0.3})` : "none";
+                        return (
+                          <span key={ci} style={{
+                            color: `rgba(${r},${g},${b},${opacity})`,
+                            textShadow: glow,
+                          }}>{ch}</span>
+                        );
+                      });
+                    })()}
+                  </div>
+                  <div style={{
+                    position: "absolute", bottom: -8, left: "50%", transform: "translateX(-50%)",
+                    width: 3, height: 3, background: "rgba(248,250,252,0.3)", borderRadius: "50%",
+                  }} />
+                </div>
+
+                {/* Tap hint */}
+                {wpm === 0 && idx < words.length - 1 && (
+                  <div style={{ marginTop: 24, fontSize: 13, color: "#475569", fontWeight: 500 }}>
+                    Tap to resume · space bar works too
+                  </div>
+                )}
+
+                {/* Done message */}
+                {idx >= words.length - 1 && wpm === 0 && (
+                  <div style={{ marginTop: 32 }}>
+                    <div style={{ fontSize: 16, color: "#34d399", fontWeight: 700, marginBottom: 12 }}>Done!</div>
+                    <div style={{ fontSize: 13, color: "#475569", marginBottom: 4 }}>Tap to restart</div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Controls */}
+            <div style={{ display: "flex", justifyContent: "center", gap: 12, padding: "0 20px 4px" }}>
+              <button onClick={(e) => { e.stopPropagation(); rewind10(); }} style={{
+                background: "rgba(12,18,30,0.8)", border: "1px solid rgba(30,41,59,0.5)",
+                borderRadius: 10, color: "#94a3b8", padding: "8px 18px", fontSize: 13,
+                fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
+              }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+                </svg>
+                10s
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); slowDown(); }} style={{
+                background: "rgba(12,18,30,0.8)", border: "1px solid rgba(30,41,59,0.5)",
+                borderRadius: 10, color: "#94a3b8", padding: "8px 18px", fontSize: 13,
+                fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
+                opacity: wpm === 0 ? 0.4 : 1,
+              }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12h14"/><path d="M12 5l-7 7 7 7"/>
+                </svg>
+                −40
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); speedUp(); }} style={{
+                background: "rgba(12,18,30,0.8)", border: "1px solid rgba(30,41,59,0.5)",
+                borderRadius: 10, color: "#94a3b8", padding: "8px 18px", fontSize: 13,
+                fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
+              }}>
+                +40
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12h14"/><path d="M12 19l7-7-7-7"/>
+                </svg>
+              </button>
+            </div>
+
+            {/* Speed slider */}
+            <div style={{ padding: "12px 20px 32px" }}>
+              <div style={{
+                background: "rgba(4,6,12,0.95)", border: "1px solid rgba(30,41,59,0.5)",
+                borderRadius: 12, padding: 0, overflow: "hidden",
+              }}>
+                <div
+                  ref={sliderRef}
+                  onMouseDown={onSliderDown}
+                  onTouchStart={onSliderDown}
+                  style={{
+                    position: "relative", height: 64, cursor: "pointer",
+                    display: "flex", alignItems: "center", touchAction: "none",
+                  }}
+                >
+                  {/* Subtle filled track */}
+                  <div style={{
+                    position: "absolute", left: 0, top: 0, bottom: 0,
+                    width: `${sliderPct}%`,
+                    background: wpm === 0
+                      ? "rgba(15,23,42,0.3)"
+                      : "linear-gradient(90deg, rgba(255,255,255,0.01), rgba(255,255,255,0.03))",
+                    transition: touching ? "none" : "width 0.05s",
+                  }} />
+
+                  {/* Nebula glow — wide diffuse cloud */}
+                  <div style={{
+                    position: "absolute",
+                    left: `calc(${sliderPct}% - 60px)`,
+                    top: -10, bottom: -10,
+                    width: 120,
+                    borderRadius: "50%",
+                    background: wpm === 0
+                      ? "radial-gradient(ellipse 100% 120%, rgba(148,163,184,0.15) 0%, rgba(120,140,170,0.08) 30%, transparent 65%)"
+                      : touching
+                        ? "radial-gradient(ellipse 100% 130%, rgba(255,255,255,0.4) 0%, rgba(210,220,240,0.18) 25%, rgba(180,200,230,0.07) 50%, transparent 70%)"
+                        : "radial-gradient(ellipse 100% 130%, rgba(255,255,255,0.25) 0%, rgba(210,220,240,0.12) 25%, rgba(180,200,230,0.05) 50%, transparent 70%)",
+                    filter: "blur(8px)",
+                    animation: touching ? "none" : "nebulaPulse 4s ease-in-out infinite",
+                    transition: touching ? "left 0.02s" : "left 0.05s, background 0.5s",
+                    pointerEvents: "none",
+                  }} />
+
+                  {/* Inner wisp — slightly brighter core drift */}
+                  <div style={{
+                    position: "absolute",
+                    left: `calc(${sliderPct}% - 30px)`,
+                    top: 2, bottom: 2,
+                    width: 60,
+                    borderRadius: "50%",
+                    background: wpm === 0
+                      ? "radial-gradient(ellipse 80% 100%, rgba(148,163,184,0.18) 0%, transparent 60%)"
+                      : touching
+                        ? "radial-gradient(ellipse 80% 110%, rgba(255,255,255,0.45) 0%, rgba(230,235,245,0.15) 35%, transparent 65%)"
+                        : "radial-gradient(ellipse 80% 110%, rgba(255,255,255,0.28) 0%, rgba(230,235,245,0.1) 35%, transparent 65%)",
+                    filter: "blur(4px)",
+                    animation: touching ? "none" : "nebulaPulse 4s ease-in-out infinite 0.5s",
+                    transition: touching ? "left 0.02s" : "left 0.05s",
+                    pointerEvents: "none",
+                  }} />
+
+                  {/* Faint star core */}
+                  <div style={{
+                    position: "absolute",
+                    left: `calc(${sliderPct}% - 5px)`,
+                    top: "50%", transform: "translateY(-50%)",
+                    width: 10, height: 10,
+                    borderRadius: "50%",
+                    background: wpm === 0
+                      ? "radial-gradient(circle, rgba(148,163,184,0.25) 0%, transparent 100%)"
+                      : "radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.2) 40%, transparent 100%)",
+                    filter: "blur(1px)",
+                    animation: touching ? "none" : "nebulaPulse 4s ease-in-out infinite 1s",
+                    transition: touching ? "left 0.02s" : "left 0.05s",
+                    pointerEvents: "none",
+                  }} />
+                </div>
+
+                <style>{`
+                  @keyframes nebulaPulse {
+                    0%, 100% { opacity: 0.45; }
+                    50% { opacity: 1; }
+                  }
+                `}</style>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
