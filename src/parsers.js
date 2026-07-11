@@ -3,10 +3,17 @@
 
 async function loadPdfjs() {
   const pdfjsLib = await import("pdfjs-dist");
-  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-    "pdfjs-dist/build/pdf.worker.min.mjs",
-    import.meta.url
-  ).toString();
+  if (import.meta.env.VITE_SINGLEFILE) {
+    // Single-file build (artifact): no separate worker file can be served, so
+    // import the worker module on the main thread — it registers
+    // globalThis.pdfjsWorker, which pdf.js picks up as its "fake worker".
+    await import("pdfjs-dist/build/pdf.worker.min.mjs");
+  } else {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+      "pdfjs-dist/build/pdf.worker.min.mjs",
+      import.meta.url
+    ).toString();
+  }
   return pdfjsLib;
 }
 
