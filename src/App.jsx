@@ -329,8 +329,9 @@ export default function SpeedReader() {
   const currentWord = words[idx] || "";
   const focusIdx = Math.min(Math.floor(currentWord.length * 0.3), currentWord.length - 1);
 
-  // Reverse mode shifts the whole reading UI from cool white to warm amber
+  // Reverse and paused states shift the reading UI from cool white to warm amber
   const rev = wpm < 0;
+  const warm = rev || wpm === 0;
   const nebulaCore = rev ? "251,191,36" : "255,255,255";
   const nebulaMid = rev ? "250,204,120" : "210,220,240";
   const nebulaEdge = rev ? "217,160,60" : "180,200,230";
@@ -501,7 +502,7 @@ export default function SpeedReader() {
                 )}
               </div>
               <div style={{ textAlign: "right", flexShrink: 0 }}>
-                <div style={{ fontSize: 24, fontWeight: 800, color: wpm === 0 ? "#f87171" : rev ? "#fbbf24" : "#34d399" }}>
+                <div style={{ fontSize: 24, fontWeight: 800, color: wpm === 0 ? "#fbbf24" : rev ? "#fbbf24" : "#34d399" }}>
                   {wpm === 0 ? "Paused" : rev ? `◀ ${-wpm}` : `${wpm}`}
                   {wpm !== 0 && <span style={{ fontSize: 12, color: "#64748b", marginLeft: 4 }}>WPM</span>}
                 </div>
@@ -538,7 +539,7 @@ export default function SpeedReader() {
                   padding: "6px 0",
                 }}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={rev ? "#fbbf24" : "#94a3b8"} strokeWidth="2" strokeLinecap="round" opacity="0.7">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={warm ? "#fbbf24" : "#94a3b8"} strokeWidth="2" strokeLinecap="round" opacity="0.7">
                   <circle cx="12" cy="12" r="4"/>
                   <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
                 </svg>
@@ -546,7 +547,7 @@ export default function SpeedReader() {
                   <div style={{
                     position: "absolute", bottom: 0, left: 0, right: 0,
                     height: `${bright * 100}%`, borderRadius: 2,
-                    background: rev
+                    background: warm
                       ? "linear-gradient(180deg, rgba(251,191,36,0.9), rgba(251,191,36,0.25))"
                       : "linear-gradient(180deg, rgba(248,250,252,0.9), rgba(148,163,184,0.25))",
                   }} />
@@ -554,8 +555,8 @@ export default function SpeedReader() {
                     position: "absolute", left: "50%", bottom: `${bright * 100}%`,
                     transform: "translate(-50%, 50%)",
                     width: 13, height: 13, borderRadius: "50%",
-                    background: rev ? "#fbbf24" : "#e2e8f0",
-                    boxShadow: `0 0 10px ${rev ? "rgba(251,191,36,0.5)" : "rgba(248,250,252,0.4)"}`,
+                    background: warm ? "#fbbf24" : "#e2e8f0",
+                    boxShadow: `0 0 10px ${warm ? "rgba(251,191,36,0.5)" : "rgba(248,250,252,0.4)"}`,
                   }} />
                 </div>
               </div>
@@ -563,19 +564,19 @@ export default function SpeedReader() {
               <div style={{ textAlign: "center", width: "100%" }}>
                 {/* The word with focus letter highlighted */}
                 <div style={{ position: "relative", display: "inline-block" }}>
-                  <div style={{ fontSize: "clamp(28px, 9vw, 58px)", fontWeight: 700, letterSpacing: 3, fontFamily: "'Georgia', 'Times New Roman', serif", minHeight: "1.2em", transition: "opacity 0.1s", opacity: wpm === 0 && idx < words.length - 1 ? 0.5 : 1 }}>
+                  <div style={{ fontSize: "clamp(28px, 9vw, 58px)", fontWeight: 700, letterSpacing: 3, fontFamily: "'Georgia', 'Times New Roman', serif", minHeight: "1.2em" }}>
                     {(() => {
                       const len = currentWord.length;
                       return currentWord.split("").map((ch, ci) => {
                         const dist = Math.abs(ci - focusIdx);
                         const maxDist = Math.max(focusIdx, len - 1 - focusIdx) || 1;
                         // Gradient: focal = bright warm white, edges fade to dim cool blue;
-                        // in reverse, focal = warm amber fading to dim bronze.
+                        // amber when reversed or paused (matching the slider's pause bar).
                         // Brightness lifts the floor: at bright=0.5 this matches the
                         // original gradient; at 1 even edge letters stay near-focal.
                         const t = (1 - dist / maxDist) + (dist / maxDist) * 0.7 * bright;
-                        const focal = rev ? [253, 230, 168] : [248, 250, 252];
-                        const edge = rev ? [146, 96, 30] : [71, 85, 105];
+                        const focal = warm ? [253, 230, 168] : [248, 250, 252];
+                        const edge = warm ? [146, 96, 30] : [71, 85, 105];
                         const r = Math.round(focal[0] * t + edge[0] * (1 - t));
                         const g = Math.round(focal[1] * t + edge[1] * (1 - t));
                         const b = Math.round(focal[2] * t + edge[2] * (1 - t));
@@ -673,11 +674,15 @@ export default function SpeedReader() {
                     transition: touching ? "none" : "width 0.05s",
                   }} />
 
-                  {/* Pause notch between reverse and forward zones */}
+                  {/* Amber pause bar — marks the press-to-pause zone between reverse and forward */}
                   <div style={{
-                    position: "absolute", left: `${((REV_END + FWD_START) / 2) * 100}%`,
-                    top: 16, bottom: 16, width: 1,
-                    background: "rgba(148,163,184,0.25)", pointerEvents: "none",
+                    position: "absolute",
+                    left: `${REV_END * 100}%`, width: `${(FWD_START - REV_END) * 100}%`,
+                    top: "50%", transform: "translateY(-50%)", height: 4, borderRadius: 2,
+                    background: wpm === 0 ? "rgba(251,191,36,0.95)" : "rgba(251,191,36,0.45)",
+                    boxShadow: wpm === 0 ? "0 0 12px rgba(251,191,36,0.6)" : "none",
+                    transition: "background 0.3s, box-shadow 0.3s",
+                    pointerEvents: "none",
                   }} />
 
                   {/* Reverse-zone hint */}
