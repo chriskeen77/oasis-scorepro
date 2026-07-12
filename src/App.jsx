@@ -58,25 +58,22 @@ export default function SpeedReader() {
     e.preventDefault();
     e.stopPropagation();
     const el = brightRef.current;
-    const apply = (ev) => {
+    const apply = (clientY) => {
       const rect = el?.getBoundingClientRect();
       if (!rect) return;
-      const clientY = ev.touches ? ev.touches[0].clientY : ev.clientY;
       const y = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
       setBright(1 - y);
     };
-    apply(e);
-    const move = (ev) => { ev.preventDefault(); apply(ev); };
+    apply(e.clientY);
+    const move = (ev) => apply(ev.clientY);
     const up = () => {
-      window.removeEventListener("mousemove", move);
-      window.removeEventListener("mouseup", up);
-      window.removeEventListener("touchmove", move);
-      window.removeEventListener("touchend", up);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
     };
-    window.addEventListener("mousemove", move);
-    window.addEventListener("mouseup", up);
-    window.addEventListener("touchmove", move, { passive: false });
-    window.addEventListener("touchend", up);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
   };
 
   const MAX_WPM = 1000;
@@ -208,11 +205,13 @@ export default function SpeedReader() {
 
   const [touching, setTouching] = useState(false);
 
+  // Pointer events only: touch and mouse arrive as ONE stream. Separate
+  // touch+mouse handlers double-fire on phones (the browser synthesizes
+  // compatibility mouse events after a tap), which made pause toggle twice.
   const onSliderDown = (e) => {
     e.preventDefault();
     setTouching(true);
     const el = sliderRef.current;
-    const clientXOf = (ev) => (ev.touches?.length ? ev.touches[0].clientX : ev.clientX);
     const sliderX = (clientX) => {
       const rect = el?.getBoundingClientRect();
       if (!rect) return null;
@@ -230,21 +229,23 @@ export default function SpeedReader() {
     // until release, and a release without real movement toggles pause/resume.
     // Fingers always jitter a few pixels during a tap, so movement below the
     // threshold must not fall through to the speed-setting drag logic.
-    const startX = clientXOf(e);
+    const startX = e.clientX;
     const x0 = sliderX(startX);
     const onPauseBar = x0 !== null && x0 >= PAUSE_SNAP_LO && x0 <= PAUSE_SNAP_HI;
     let dragging = !onPauseBar;
     if (dragging) apply(startX);
 
+    const cleanup = () => {
+      setTouching(false);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", cancel);
+    };
     const move = (ev) => {
-      ev.preventDefault();
-      const cx = clientXOf(ev);
-      if (cx === undefined) return;
-      if (!dragging && Math.abs(cx - startX) > 8) dragging = true;
-      if (dragging) apply(cx);
+      if (!dragging && Math.abs(ev.clientX - startX) > 8) dragging = true;
+      if (dragging) apply(ev.clientX);
     };
     const up = () => {
-      setTouching(false);
       if (!dragging) {
         // Clean tap on the pause bar — toggle, resuming at the last speed
         setWpm((cur) => {
@@ -253,15 +254,12 @@ export default function SpeedReader() {
           return 0;
         });
       }
-      window.removeEventListener("mousemove", move);
-      window.removeEventListener("mouseup", up);
-      window.removeEventListener("touchmove", move);
-      window.removeEventListener("touchend", up);
+      cleanup();
     };
-    window.addEventListener("mousemove", move);
-    window.addEventListener("mouseup", up);
-    window.addEventListener("touchmove", move, { passive: false });
-    window.addEventListener("touchend", up);
+    const cancel = () => cleanup(); // browser took the gesture (e.g. scroll) — no toggle
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", cancel);
   };
 
   const togglePause = () => {
@@ -555,8 +553,7 @@ export default function SpeedReader() {
               <div
                 aria-label="Brightness"
                 onClick={(e) => e.stopPropagation()}
-                onMouseDown={onBrightDown}
-                onTouchStart={onBrightDown}
+                onPointerDown={onBrightDown}
                 style={{
                   position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
                   width: 36, height: 170, display: "flex", flexDirection: "column",
@@ -682,8 +679,7 @@ export default function SpeedReader() {
               }}>
                 <div
                   ref={sliderRef}
-                  onMouseDown={onSliderDown}
-                  onTouchStart={onSliderDown}
+                  onPointerDown={onSliderDown}
                   style={{
                     position: "relative", height: 64, cursor: "pointer",
                     display: "flex", alignItems: "center", touchAction: "none",
