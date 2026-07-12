@@ -86,6 +86,10 @@ export default function SpeedReader() {
   // Slider zones: [0, REV_END) reverse · [REV_END, FWD_START) pause · [FWD_START, 1] forward
   const REV_END = 0.22;
   const FWD_START = 0.28;
+  // Taps landing anywhere near the pause bar count as pressing it —
+  // the exact zone is too small a target for a fingertip
+  const PAUSE_SNAP_LO = 0.15;
+  const PAUSE_SNAP_HI = 0.35;
 
   // Negative wpm means reading in reverse.
   const wpmFromSlider = (x) => {
@@ -159,8 +163,7 @@ export default function SpeedReader() {
       if (saved > 0 && saved < w.length - 1) startAt = saved;
     }
     setIdx(startAt);
-    setWpm(250);
-    prevWpmRef.current = 250;
+    setWpm(0); // open paused — reading starts when the user taps
     setView("reading");
   };
 
@@ -222,11 +225,17 @@ export default function SpeedReader() {
       setWpm(v);
       if (v > 0) prevWpmRef.current = v;
     };
-    // Initial press only: tapping the pause bar while already paused resumes
-    // at the last reading speed (drags through the zone still pause).
+    // Initial press only: anywhere near the pause bar toggles pause/resume
+    // (resuming at the last reading speed). Drags still map exactly, so
+    // sliding through the zone pauses without bouncing back.
     const x0 = sliderX(e);
-    if (x0 !== null && wpmFromSlider(x0) === 0 && wpm === 0) {
-      setWpm(prevWpmRef.current || 250);
+    if (x0 !== null && x0 >= PAUSE_SNAP_LO && x0 <= PAUSE_SNAP_HI) {
+      if (wpm === 0) {
+        setWpm(prevWpmRef.current || 250);
+      } else {
+        if (wpm > 0) prevWpmRef.current = wpm;
+        setWpm(0);
+      }
     } else {
       apply(e);
     }
@@ -605,7 +614,7 @@ export default function SpeedReader() {
                 {/* Tap hint */}
                 {wpm === 0 && idx < words.length - 1 && (
                   <div style={{ marginTop: 24, fontSize: 13, color: "#475569", fontWeight: 500 }}>
-                    Tap to resume · space bar works too
+                    {idx === 0 ? "Tap to start" : "Tap to resume"} · space bar works too
                   </div>
                 )}
 
