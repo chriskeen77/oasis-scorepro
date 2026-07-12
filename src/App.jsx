@@ -5,42 +5,6 @@ const SAMPLE = `The art of speed reading has fascinated researchers for decades.
 
 const ACCEPT = ".txt,.md,.markdown,.mdown,.pdf,.epub,.html,.htm,.xhtml";
 
-const AtomSVG = () => (
-  <svg viewBox="0 0 400 400" fill="none" style={{ width: "100%", height: "100%" }}>
-    <defs>
-      <linearGradient id="mo1" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#e2e8f0"/><stop offset="25%" stopColor="#94a3b8"/>
-        <stop offset="50%" stopColor="#f1f5f9"/><stop offset="75%" stopColor="#64748b"/>
-        <stop offset="100%" stopColor="#cbd5e1"/>
-      </linearGradient>
-      <linearGradient id="mo2" x1="100%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" stopColor="#c4b5fd"/><stop offset="30%" stopColor="#e2e8f0"/>
-        <stop offset="60%" stopColor="#a5b4fc"/><stop offset="100%" stopColor="#f1f5f9"/>
-      </linearGradient>
-      <linearGradient id="mo3" x1="0%" y1="100%" x2="100%" y2="0%">
-        <stop offset="0%" stopColor="#6ee7b7"/><stop offset="30%" stopColor="#e2e8f0"/>
-        <stop offset="60%" stopColor="#5eead4"/><stop offset="100%" stopColor="#f1f5f9"/>
-      </linearGradient>
-      <radialGradient id="mc" cx="40%" cy="35%">
-        <stop offset="0%" stopColor="#f8fafc"/><stop offset="40%" stopColor="#cbd5e1"/>
-        <stop offset="70%" stopColor="#94a3b8"/><stop offset="100%" stopColor="#475569"/>
-      </radialGradient>
-      <radialGradient id="eb"><stop offset="0%" stopColor="#fff"/><stop offset="30%" stopColor="#60a5fa"/><stop offset="100%" stopColor="#3b82f6"/></radialGradient>
-      <radialGradient id="ep"><stop offset="0%" stopColor="#fff"/><stop offset="30%" stopColor="#a78bfa"/><stop offset="100%" stopColor="#8b5cf6"/></radialGradient>
-      <radialGradient id="eg"><stop offset="0%" stopColor="#fff"/><stop offset="30%" stopColor="#34d399"/><stop offset="100%" stopColor="#10b981"/></radialGradient>
-      <filter id="gl"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-    </defs>
-    <circle cx="200" cy="200" r="22" fill="url(#mc)" filter="url(#gl)"/>
-    <circle cx="193" cy="193" r="6" fill="rgba(255,255,255,0.4)"/>
-    <ellipse cx="200" cy="200" rx="170" ry="60" stroke="url(#mo1)" strokeWidth="4.5"/>
-    <circle cx="370" cy="200" r="11" fill="url(#eb)" filter="url(#gl)"/>
-    <ellipse cx="200" cy="200" rx="170" ry="60" stroke="url(#mo2)" strokeWidth="4.5" transform="rotate(60 200 200)"/>
-    <circle cx="285" cy="53" r="11" fill="url(#ep)" filter="url(#gl)"/>
-    <ellipse cx="200" cy="200" rx="170" ry="60" stroke="url(#mo3)" strokeWidth="4.5" transform="rotate(120 200 200)"/>
-    <circle cx="115" cy="53" r="11" fill="url(#eg)" filter="url(#gl)"/>
-  </svg>
-);
-
 const Panel = ({ children, style }) => (
   <div style={{
     background: "rgba(12,18,30,0.75)", border: "1px solid rgba(51,65,85,0.5)",
@@ -73,6 +37,9 @@ export default function SpeedReader() {
     const s = parseFloat(localStorage.getItem("bookmark:brightness"));
     return Number.isFinite(s) ? Math.max(0, Math.min(1, s)) : 0.75;
   });
+  // Warm mode swaps the two reading palettes for a warmer environment:
+  // words render amber while reading, cool white becomes the paused/reverse accent.
+  const [warmMode, setWarmMode] = useState(() => localStorage.getItem("bookmark:warm") === "1");
   const timerRef = useRef(null);
   const sliderRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -82,6 +49,10 @@ export default function SpeedReader() {
   useEffect(() => {
     localStorage.setItem("bookmark:brightness", String(bright));
   }, [bright]);
+
+  useEffect(() => {
+    localStorage.setItem("bookmark:warm", warmMode ? "1" : "0");
+  }, [warmMode]);
 
   const onBrightDown = (e) => {
     e.preventDefault();
@@ -329,12 +300,15 @@ export default function SpeedReader() {
   const currentWord = words[idx] || "";
   const focusIdx = Math.min(Math.floor(currentWord.length * 0.3), currentWord.length - 1);
 
-  // Reverse and paused states shift the reading UI from cool white to warm amber
+  // Reverse and paused states shift the reading UI to the accent palette.
+  // Default: reading = cool white, paused/reverse = amber. Warm mode inverts that.
   const rev = wpm < 0;
-  const warm = rev || wpm === 0;
-  const nebulaCore = rev ? "251,191,36" : "255,255,255";
-  const nebulaMid = rev ? "250,204,120" : "210,220,240";
-  const nebulaEdge = rev ? "217,160,60" : "180,200,230";
+  const amber = warmMode ? !(rev || wpm === 0) : rev || wpm === 0;
+  const accentRGB = warmMode ? "226,232,240" : "251,191,36"; // paused/reverse accent
+  const accentHex = warmMode ? "#e2e8f0" : "#fbbf24";
+  const nebulaCore = amber ? "251,191,36" : "255,255,255";
+  const nebulaMid = amber ? "250,204,120" : "210,220,240";
+  const nebulaEdge = amber ? "217,160,60" : "180,200,230";
 
   // Which chapter are we in right now?
   const currentMark = marks.reduce((acc, m) => (idx >= m.start ? m : acc), marks[0]);
@@ -348,9 +322,6 @@ export default function SpeedReader() {
         <div style={{ position: "absolute", width: "50vmax", height: "50vmax", background: "radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%)", top: "-15vmax", right: "-10vmax" }} />
         <div style={{ position: "absolute", width: "45vmax", height: "45vmax", background: "radial-gradient(circle, rgba(52,211,153,0.05) 0%, transparent 70%)", bottom: "-12vmax", left: "-10vmax" }} />
         <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(148,163,184,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.02) 1px, transparent 1px)", backgroundSize: "36px 36px" }} />
-        <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "70vmin", height: "70vmin", opacity: 0.06 }}>
-          <AtomSVG />
-        </div>
       </div>
 
       <div style={{ position: "relative", zIndex: 1, height: "100vh", display: "flex", flexDirection: "column" }}>
@@ -488,13 +459,36 @@ export default function SpeedReader() {
           <div style={{ flex: 1, display: "flex", flexDirection: "column", width: "100%" }}>
             {/* Top bar */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px 8px", gap: 12 }}>
-              <button onClick={back} style={{
-                background: "rgba(30,41,59,0.6)", border: "1px solid rgba(51,65,85,0.5)",
-                borderRadius: 8, color: "#94a3b8", padding: "6px 14px", fontSize: 12,
-                fontWeight: 600, cursor: "pointer", flexShrink: 0,
-              }}>
-                ← Back
-              </button>
+              <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                <button onClick={back} style={{
+                  background: "rgba(30,41,59,0.6)", border: "1px solid rgba(51,65,85,0.5)",
+                  borderRadius: 8, color: "#94a3b8", padding: "6px 14px", fontSize: 12,
+                  fontWeight: 600, cursor: "pointer",
+                }}>
+                  ← Back
+                </button>
+                <button
+                  aria-label="Warm mode"
+                  onClick={() => setWarmMode((w) => !w)}
+                  style={{
+                    background: warmMode ? "rgba(251,146,60,0.15)" : "rgba(30,41,59,0.6)",
+                    border: `1px solid ${warmMode ? "rgba(251,146,60,0.45)" : "rgba(51,65,85,0.5)"}`,
+                    borderRadius: 8, padding: "6px 10px", cursor: "pointer",
+                    display: "flex", alignItems: "center",
+                  }}
+                >
+                  {warmMode ? (
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fb923c" strokeWidth="2" strokeLinecap="round">
+                      <circle cx="12" cy="12" r="4"/>
+                      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+                    </svg>
+                  ) : (
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                  )}
+                </button>
+              </div>
               <div style={{ minWidth: 0, textAlign: "center", flex: 1 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: "#94a3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{readingTitle}</div>
                 {currentMark?.title && marks.length > 1 && (
@@ -502,7 +496,7 @@ export default function SpeedReader() {
                 )}
               </div>
               <div style={{ textAlign: "right", flexShrink: 0 }}>
-                <div style={{ fontSize: 24, fontWeight: 800, color: wpm === 0 ? "#fbbf24" : rev ? "#fbbf24" : "#34d399" }}>
+                <div style={{ fontSize: 24, fontWeight: 800, color: wpm === 0 || rev ? accentHex : "#34d399" }}>
                   {wpm === 0 ? "Paused" : rev ? `◀ ${-wpm}` : `${wpm}`}
                   {wpm !== 0 && <span style={{ fontSize: 12, color: "#64748b", marginLeft: 4 }}>WPM</span>}
                 </div>
@@ -512,7 +506,7 @@ export default function SpeedReader() {
             {/* Progress bar */}
             <div style={{ padding: "0 20px", marginBottom: 4 }}>
               <div style={{ background: "rgba(30,41,59,0.5)", borderRadius: 4, height: 4, overflow: "hidden" }}>
-                <div style={{ width: `${pct}%`, height: "100%", background: rev ? "linear-gradient(90deg, #b45309, #fbbf24)" : "linear-gradient(90deg, #3b82f6, #8b5cf6, #34d399)", borderRadius: 4, transition: "width 0.1s" }} />
+                <div style={{ width: `${pct}%`, height: "100%", background: rev ? (warmMode ? "linear-gradient(90deg, #64748b, #e2e8f0)" : "linear-gradient(90deg, #b45309, #fbbf24)") : "linear-gradient(90deg, #3b82f6, #8b5cf6, #34d399)", borderRadius: 4, transition: "width 0.1s" }} />
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: 10, color: "#475569" }}>
                 <span>{idx + 1} / {words.length}</span>
@@ -539,7 +533,7 @@ export default function SpeedReader() {
                   padding: "6px 0",
                 }}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={warm ? "#fbbf24" : "#94a3b8"} strokeWidth="2" strokeLinecap="round" opacity="0.7">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={amber ? "#fbbf24" : "#94a3b8"} strokeWidth="2" strokeLinecap="round" opacity="0.7">
                   <circle cx="12" cy="12" r="4"/>
                   <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
                 </svg>
@@ -547,7 +541,7 @@ export default function SpeedReader() {
                   <div style={{
                     position: "absolute", bottom: 0, left: 0, right: 0,
                     height: `${bright * 100}%`, borderRadius: 2,
-                    background: warm
+                    background: amber
                       ? "linear-gradient(180deg, rgba(251,191,36,0.9), rgba(251,191,36,0.25))"
                       : "linear-gradient(180deg, rgba(248,250,252,0.9), rgba(148,163,184,0.25))",
                   }} />
@@ -555,8 +549,8 @@ export default function SpeedReader() {
                     position: "absolute", left: "50%", bottom: `${bright * 100}%`,
                     transform: "translate(-50%, 50%)",
                     width: 13, height: 13, borderRadius: "50%",
-                    background: warm ? "#fbbf24" : "#e2e8f0",
-                    boxShadow: `0 0 10px ${warm ? "rgba(251,191,36,0.5)" : "rgba(248,250,252,0.4)"}`,
+                    background: amber ? "#fbbf24" : "#e2e8f0",
+                    boxShadow: `0 0 10px ${amber ? "rgba(251,191,36,0.5)" : "rgba(248,250,252,0.4)"}`,
                   }} />
                 </div>
               </div>
@@ -575,8 +569,8 @@ export default function SpeedReader() {
                         // Brightness lifts the floor: at bright=0.5 this matches the
                         // original gradient; at 1 even edge letters stay near-focal.
                         const t = (1 - dist / maxDist) + (dist / maxDist) * 0.7 * bright;
-                        const focal = warm ? [253, 230, 168] : [248, 250, 252];
-                        const edge = warm ? [146, 96, 30] : [71, 85, 105];
+                        const focal = amber ? [253, 230, 168] : [248, 250, 252];
+                        const edge = amber ? [146, 96, 30] : [71, 85, 105];
                         const r = Math.round(focal[0] * t + edge[0] * (1 - t));
                         const g = Math.round(focal[1] * t + edge[1] * (1 - t));
                         const b = Math.round(focal[2] * t + edge[2] * (1 - t));
@@ -679,8 +673,8 @@ export default function SpeedReader() {
                     position: "absolute",
                     left: `${REV_END * 100}%`, width: `${(FWD_START - REV_END) * 100}%`,
                     top: "50%", transform: "translateY(-50%)", height: 4, borderRadius: 2,
-                    background: wpm === 0 ? "rgba(251,191,36,0.95)" : "rgba(251,191,36,0.45)",
-                    boxShadow: wpm === 0 ? "0 0 12px rgba(251,191,36,0.6)" : "none",
+                    background: wpm === 0 ? `rgba(${accentRGB},0.95)` : `rgba(${accentRGB},0.45)`,
+                    boxShadow: wpm === 0 ? `0 0 12px rgba(${accentRGB},0.6)` : "none",
                     transition: "background 0.3s, box-shadow 0.3s",
                     pointerEvents: "none",
                   }} />
@@ -689,7 +683,7 @@ export default function SpeedReader() {
                   <div style={{
                     position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)",
                     fontSize: 9, letterSpacing: 1, pointerEvents: "none",
-                    color: rev ? "rgba(251,191,36,0.75)" : "rgba(148,163,184,0.3)",
+                    color: rev ? `rgba(${accentRGB},0.75)` : "rgba(148,163,184,0.3)",
                     transition: "color 0.3s",
                   }}>◀◀</div>
 

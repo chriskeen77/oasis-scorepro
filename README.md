@@ -24,6 +24,9 @@ Everything is parsed locally in your browser — no file ever leaves your device
   the left to scrub in reverse (the UI turns amber)
 - Punctuation-aware pacing (longer pauses at sentence ends)
 - Tap or press space to pause/resume, `←` to rewind 10 seconds, `Esc` to go back
+- Warm reading mode (sun/moon switch in the reading view): the background stays
+  dark but the palettes swap — words render amber while reading, cool white
+  becomes the paused/reverse accent
 - Per-document resume — reopen a book and continue where you left off
 - Chapter list for EPUBs and Markdown files: read one chapter or the whole book
 - Progress bar with time-remaining estimate
