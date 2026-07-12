@@ -209,16 +209,27 @@ export default function SpeedReader() {
     e.preventDefault();
     setTouching(true);
     const el = sliderRef.current;
-    const apply = (ev) => {
+    const sliderX = (ev) => {
       const rect = el?.getBoundingClientRect();
-      if (!rect) return;
+      if (!rect) return null;
       const clientX = ev.touches ? ev.touches[0].clientX : ev.clientX;
-      const x = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    };
+    const apply = (ev) => {
+      const x = sliderX(ev);
+      if (x === null) return;
       const v = wpmFromSlider(x);
       setWpm(v);
       if (v > 0) prevWpmRef.current = v;
     };
-    apply(e);
+    // Initial press only: tapping the pause bar while already paused resumes
+    // at the last reading speed (drags through the zone still pause).
+    const x0 = sliderX(e);
+    if (x0 !== null && wpmFromSlider(x0) === 0 && wpm === 0) {
+      setWpm(prevWpmRef.current || 250);
+    } else {
+      apply(e);
+    }
     const move = (ev) => { ev.preventDefault(); apply(ev); };
     const up = () => {
       setTouching(false);
