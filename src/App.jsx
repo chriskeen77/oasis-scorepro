@@ -212,36 +212,47 @@ export default function SpeedReader() {
     e.preventDefault();
     setTouching(true);
     const el = sliderRef.current;
-    const sliderX = (ev) => {
+    const clientXOf = (ev) => (ev.touches?.length ? ev.touches[0].clientX : ev.clientX);
+    const sliderX = (clientX) => {
       const rect = el?.getBoundingClientRect();
       if (!rect) return null;
-      const clientX = ev.touches ? ev.touches[0].clientX : ev.clientX;
       return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
     };
-    const apply = (ev) => {
-      const x = sliderX(ev);
+    const apply = (clientX) => {
+      const x = sliderX(clientX);
       if (x === null) return;
       const v = wpmFromSlider(x);
       setWpm(v);
       if (v > 0) prevWpmRef.current = v;
     };
-    // Initial press only: anywhere near the pause bar toggles pause/resume
-    // (resuming at the last reading speed). Drags still map exactly, so
-    // sliding through the zone pauses without bouncing back.
-    const x0 = sliderX(e);
-    if (x0 !== null && x0 >= PAUSE_SNAP_LO && x0 <= PAUSE_SNAP_HI) {
-      if (wpm === 0) {
-        setWpm(prevWpmRef.current || 250);
-      } else {
-        if (wpm > 0) prevWpmRef.current = wpm;
-        setWpm(0);
-      }
-    } else {
-      apply(e);
-    }
-    const move = (ev) => { ev.preventDefault(); apply(ev); };
+
+    // A press near the pause bar works like tapping the word: nothing happens
+    // until release, and a release without real movement toggles pause/resume.
+    // Fingers always jitter a few pixels during a tap, so movement below the
+    // threshold must not fall through to the speed-setting drag logic.
+    const startX = clientXOf(e);
+    const x0 = sliderX(startX);
+    const onPauseBar = x0 !== null && x0 >= PAUSE_SNAP_LO && x0 <= PAUSE_SNAP_HI;
+    let dragging = !onPauseBar;
+    if (dragging) apply(startX);
+
+    const move = (ev) => {
+      ev.preventDefault();
+      const cx = clientXOf(ev);
+      if (cx === undefined) return;
+      if (!dragging && Math.abs(cx - startX) > 8) dragging = true;
+      if (dragging) apply(cx);
+    };
     const up = () => {
       setTouching(false);
+      if (!dragging) {
+        // Clean tap on the pause bar — toggle, resuming at the last speed
+        setWpm((cur) => {
+          if (cur === 0) return prevWpmRef.current || 250;
+          if (cur > 0) prevWpmRef.current = cur;
+          return 0;
+        });
+      }
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", up);
       window.removeEventListener("touchmove", move);
