@@ -1,0 +1,13 @@
+# Install torch FIRST with the CUDA 12.8 build (required for the RTX 5060 Ti):
+#   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu128
+# then: pip install -r requirements.txt
+# and if chatterbox-tts downgraded torch, force the cu128 build back:
+#   pip install --force-reinstall torch torchaudio --index-url https://download.pytorch.org/whl/cu128
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.7
+python-multipart>=0.0.9
+numpy
+soundfile>=0.12
+chatterbox-tts
+kokoro>=0.9.4
