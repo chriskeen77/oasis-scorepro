@@ -100,6 +100,7 @@ function Audiobook({ voices, onError }) {
   const [voice, setVoice] = useState('')
   const [title, setTitle] = useState('')
   const [text, setText] = useState('')
+  const [book, setBook] = useState(null) // { title, chapters: [{title, text, included}] }
   const [jobs, setJobs] = useState([])
 
   useEffect(() => {
@@ -111,15 +112,44 @@ function Audiobook({ voices, onError }) {
 
   const loadFile = async (file) => {
     if (!file) return
-    setText(await file.text())
-    if (!title) setTitle(file.name.replace(/\.[^.]+$/, ''))
+    onError(null)
+    if (file.name.toLowerCase().endsWith('.epub')) {
+      try {
+        const parsed = await api.uploadEpub(file)
+        setBook({ ...parsed, chapters: parsed.chapters.map(c => ({ ...c, included: true })) })
+        setText('')
+        if (!title) setTitle(parsed.title)
+      } catch (e) {
+        onError(e.message)
+      }
+    } else {
+      setBook(null)
+      setText(await file.text())
+      if (!title) setTitle(file.name.replace(/\.[^.]+$/, ''))
+    }
   }
+
+  const toggleChapter = (i) => {
+    setBook(b => ({
+      ...b,
+      chapters: b.chapters.map((c, j) => (j === i ? { ...c, included: !c.included } : c)),
+    }))
+  }
+
+  const canSubmit = book ? book.chapters.some(c => c.included) : !!text.trim()
 
   const submit = async () => {
     onError(null)
     try {
-      await api.audiobook({ engine, text, voice: voice || null, title: title || 'untitled' })
+      const payload = { engine, voice: voice || null, title: title || 'untitled' }
+      if (book) {
+        payload.chapters = book.chapters.filter(c => c.included).map(({ title: t, text: x }) => ({ title: t, text: x }))
+      } else {
+        payload.text = text
+      }
+      await api.audiobook(payload)
       setText('')
+      setBook(null)
     } catch (e) {
       onError(e.message)
     }
@@ -134,12 +164,28 @@ function Audiobook({ voices, onError }) {
           <input value={title} onChange={e => setTitle(e.target.value)} placeholder="My Audiobook" />
         </label>
         <label>
-          Load .txt file
-          <input type="file" accept=".txt,.md,text/plain" onChange={e => loadFile(e.target.files[0])} />
+          Load book (.epub or .txt)
+          <input type="file" accept=".epub,.txt,.md,text/plain" onChange={e => loadFile(e.target.files[0])} />
         </label>
       </div>
-      <textarea rows={10} placeholder="Paste the full book text here (or load a .txt file)…" value={text} onChange={e => setText(e.target.value)} />
-      <button className="primary" disabled={!text.trim()} onClick={submit}>Render audiobook</button>
+      {book ? (
+        <div className="chapter-list">
+          <p className="muted">
+            {book.chapters.filter(c => c.included).length} of {book.chapters.length} chapters selected —
+            untick front matter you don't want narrated. Multi-chapter books export as M4B with chapter markers.
+          </p>
+          {book.chapters.map((c, i) => (
+            <label key={i} className="chapter">
+              <input type="checkbox" checked={c.included} onChange={() => toggleChapter(i)} />
+              <span>{c.title || `Chapter ${i + 1}`}</span>
+              <span className="muted">{(c.text.length / 1000).toFixed(1)}k chars</span>
+            </label>
+          ))}
+        </div>
+      ) : (
+        <textarea rows={10} placeholder="Paste the full book text here (or load an .epub/.txt file)… Lines like 'Chapter 1' become chapter markers." value={text} onChange={e => setText(e.target.value)} />
+      )}
+      <button className="primary" disabled={!canSubmit} onClick={submit}>Render audiobook</button>
 
       <h2>Jobs</h2>
       {jobs.length === 0 && <p className="muted">No jobs yet.</p>}
@@ -154,6 +200,7 @@ function Audiobook({ voices, onError }) {
           )}
           <div className="job-meta">
             {j.done_chunks}/{j.total_chunks} chunks
+            {j.status === 'running' && j.current_chapter && ` · ${j.current_chapter}`}
             {j.eta_sec != null && ` · ~${formatSec(j.eta_sec)} left`}
             {j.elapsed_sec != null && ` · ${formatSec(j.elapsed_sec)} elapsed`}
             {j.error && <span className="error-text"> · {j.error}</span>}
@@ -170,13 +217,62 @@ function Audiobook({ voices, onError }) {
   )
 }
 
+function Recorder({ onClip }) {
+  const [recording, setRecording] = useState(false)
+  const [seconds, setSeconds] = useState(0)
+  const recorderRef = useRef(null)
+  const timerRef = useRef(null)
+
+  const start = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const rec = new MediaRecorder(stream)
+      const parts = []
+      rec.ondataavailable = e => parts.push(e.data)
+      rec.onstop = () => {
+        stream.getTracks().forEach(t => t.stop())
+        onClip(new Blob(parts, { type: rec.mimeType || 'audio/webm' }))
+      }
+      rec.start()
+      recorderRef.current = rec
+      setSeconds(0)
+      timerRef.current = setInterval(() => setSeconds(s => s + 1), 1000)
+      setRecording(true)
+    } catch {
+      onClip(null, 'Microphone access denied or unavailable')
+    }
+  }
+
+  const stop = () => {
+    clearInterval(timerRef.current)
+    recorderRef.current?.stop()
+    setRecording(false)
+  }
+
+  useEffect(() => () => clearInterval(timerRef.current), [])
+
+  return recording ? (
+    <button onClick={stop}>⏹ Stop ({seconds}s)</button>
+  ) : (
+    <button onClick={start}>🎙 Record with mic</button>
+  )
+}
+
 function Voices({ voices, refresh, onError }) {
   const [name, setName] = useState('')
   const fileRef = useRef(null)
+  const [recorded, setRecorded] = useState(null) // { blob, url }
   const [busy, setBusy] = useState(false)
 
+  const handleClip = (blob, err) => {
+    if (err) { onError(err); return }
+    if (recorded) URL.revokeObjectURL(recorded.url)
+    setRecorded({ blob, url: URL.createObjectURL(blob) })
+  }
+
   const upload = async () => {
-    const file = fileRef.current?.files?.[0]
+    const picked = fileRef.current?.files?.[0]
+    const file = picked || (recorded && new File([recorded.blob], 'recording.webm'))
     if (!file || !name.trim()) return
     setBusy(true)
     onError(null)
@@ -184,6 +280,8 @@ function Voices({ voices, refresh, onError }) {
       await api.uploadVoice(name.trim(), file)
       setName('')
       fileRef.current.value = ''
+      if (recorded) URL.revokeObjectURL(recorded.url)
+      setRecorded(null)
       refresh()
     } catch (e) {
       onError(e.message)
@@ -196,7 +294,7 @@ function Voices({ voices, refresh, onError }) {
     <section>
       <h2>Clone a voice</h2>
       <p className="muted">
-        Upload 5–20 seconds of clean speech (WAV/FLAC/OGG — no music or background noise).
+        Record or upload 5–20 seconds of clean speech (no music or background noise).
         Chatterbox will speak in that voice. Only clone voices you have permission to use.
       </p>
       <div className="row">
@@ -205,12 +303,17 @@ function Voices({ voices, refresh, onError }) {
           <input value={name} onChange={e => setName(e.target.value)} placeholder="my-voice" />
         </label>
         <label>
-          Reference clip
-          <input type="file" ref={fileRef} accept=".wav,.flac,.ogg,audio/*" />
+          Reference clip (or record below)
+          <input type="file" ref={fileRef} accept=".wav,.flac,.ogg,.mp3,.m4a,audio/*" />
         </label>
         <button className="primary" disabled={busy || !name.trim()} onClick={upload}>
           {busy ? 'Uploading…' : 'Add voice'}
         </button>
+      </div>
+      <div className="row">
+        <Recorder onClip={handleClip} />
+        {recorded && <audio controls src={recorded.url} />}
+        {recorded && <span className="muted">recording ready — name it and click Add voice</span>}
       </div>
       <h2>Cloned voices</h2>
       {voices.cloned.length === 0 && <p className="muted">None yet — add one above.</p>}

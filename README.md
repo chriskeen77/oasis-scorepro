@@ -11,10 +11,14 @@ open-source TTS engines on your own GPUs. No API fees.
 ## Features
 
 - **Narrate** — type/paste text, pick an engine and voice, play or download the result.
-- **Audiobook** — paste a whole book (or load a `.txt`), it's chunked by sentence,
-  rendered in the background with live progress/ETA, stitched with natural pauses,
-  loudness-normalized, and exported (MP3 if `ffmpeg` is installed, else WAV).
-- **Voices** — upload a short clip of clean speech to clone a voice for Chatterbox.
+- **Audiobook** — load an **`.epub`** (chapters are extracted automatically and you can
+  untick front matter) or paste/load plain text (lines like "Chapter 1" become chapter
+  breaks). Rendering runs in the background with live progress/ETA, glitch-retry,
+  natural pause stitching, and loudness normalization. Multi-chapter books export as
+  **M4B audiobooks with chapter markers** (needs `ffmpeg`); single-chapter jobs export
+  MP3, with WAV as the no-ffmpeg fallback.
+- **Voices** — clone a voice for Chatterbox by uploading a short clip of clean speech
+  **or recording it directly with your mic** in the browser.
 - **VRAM management** — models load on first use and are **automatically evicted from
   VRAM after 5 minutes idle** (configurable). The footer shows live per-GPU memory and
   has a "free VRAM" button for instant manual unload.

@@ -5,6 +5,9 @@ Run:  uvicorn main:app --host 127.0.0.1 --port 8000
 import io
 import logging
 import re
+import subprocess
+import tempfile
+from pathlib import Path
 
 import soundfile as sf
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
@@ -14,7 +17,8 @@ from pydantic import BaseModel, Field
 
 import config
 import engines
-from jobs import runner
+from epub import parse_epub, split_plain_text_chapters
+from jobs import ffmpeg_available, runner
 from model_manager import manager
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
@@ -46,14 +50,22 @@ class TTSRequest(BaseModel):
     cfg_weight: float = Field(default=0.5, ge=0.0, le=1.0)
 
 
-class AudiobookRequest(TTSRequest):
+class Chapter(BaseModel):
+    title: str = Field(default="", max_length=200)
     text: str = Field(min_length=1, max_length=2_000_000)
+
+
+class AudiobookRequest(TTSRequest):
+    # Either raw `text` (auto-split on "Chapter N" headings) or explicit
+    # `chapters` (from the EPUB parser, possibly filtered in the UI).
+    text: str = Field(default="", max_length=2_000_000)
+    chapters: list[Chapter] | None = None
     title: str = Field(default="untitled", max_length=120)
 
 
 @app.get("/api/health")
 def health():
-    return {"ok": True}
+    return {"ok": True, "ffmpeg": ffmpeg_available()}
 
 
 @app.get("/api/models/status")
@@ -84,14 +96,39 @@ async def upload_voice(name: str = Form(...), file: UploadFile = File(...)):
         raise HTTPException(400, "reference clip too large (50 MB max)")
     try:
         data, sr = sf.read(io.BytesIO(raw), dtype="float32", always_2d=True)
-    except Exception as e:  # noqa: BLE001
-        raise HTTPException(400, f"could not decode audio ({e}); upload WAV/FLAC/OGG") from e
+    except Exception:  # noqa: BLE001 - fall through to ffmpeg for webm/mp3/m4a
+        data, sr = _ffmpeg_decode(raw)
     mono = data.mean(axis=1)
     duration = len(mono) / sr
     if duration < 3:
         raise HTTPException(400, f"clip is {duration:.1f}s; give at least ~5s of clean speech")
     sf.write(_voice_path(name), mono, sr)
     return {"name": name, "duration_sec": round(duration, 1)}
+
+
+def _ffmpeg_decode(raw: bytes):
+    """Decode formats libsndfile can't (webm/opus mic recordings, mp3, m4a)."""
+    if not ffmpeg_available():
+        raise HTTPException(
+            400,
+            "could not decode audio; upload WAV/FLAC/OGG, or install ffmpeg "
+            "to enable webm/mp3/m4a (including in-browser recordings)",
+        )
+    src = tempfile.NamedTemporaryFile(suffix=".bin", delete=False)
+    dst_path = Path(src.name).with_suffix(".wav")
+    try:
+        src.write(raw)
+        src.close()
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", src.name, "-ac", "1", "-ar", str(config.SAMPLE_RATE), str(dst_path)],
+            check=True, capture_output=True, timeout=120,
+        )
+        return sf.read(dst_path, dtype="float32", always_2d=True)
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+        raise HTTPException(400, "ffmpeg could not decode the uploaded audio") from e
+    finally:
+        Path(src.name).unlink(missing_ok=True)
+        dst_path.unlink(missing_ok=True)
 
 
 @app.delete("/api/voices/{name}")
@@ -128,11 +165,31 @@ def tts(req: TTSRequest):
     return Response(content=buf.getvalue(), media_type="audio/wav")
 
 
+@app.post("/api/epub")
+async def upload_epub(file: UploadFile = File(...)):
+    raw = await file.read()
+    if len(raw) > 100 * 1024 * 1024:
+        raise HTTPException(400, "EPUB too large (100 MB max)")
+    try:
+        book = parse_epub(raw)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(400, f"could not parse EPUB: {e}") from e
+    return book
+
+
 @app.post("/api/audiobook")
 def audiobook(req: AudiobookRequest):
     voice = _resolve_voice(req)
+    if req.chapters:
+        chapters = [c.model_dump() for c in req.chapters]
+    elif req.text.strip():
+        chapters = split_plain_text_chapters(req.text)
+    else:
+        raise HTTPException(400, "provide either text or chapters")
+    if sum(len(c["text"]) for c in chapters) > 2_000_000:
+        raise HTTPException(400, "book exceeds 2,000,000 characters")
     job = runner.submit(
-        title=req.title, engine=req.engine, text=req.text, voice=voice,
+        title=req.title, engine=req.engine, chapters=chapters, voice=voice,
         speed=req.speed, exaggeration=req.exaggeration, cfg_weight=req.cfg_weight,
     )
     return {"job_id": job.id}

@@ -29,6 +29,11 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     }).then(check).then(r => r.blob()),
+  uploadEpub: (file) => {
+    const form = new FormData()
+    form.append('file', file)
+    return fetch(`${BASE}/epub`, { method: 'POST', body: form }).then(check).then(r => r.json())
+  },
   audiobook: (payload) =>
     fetch(`${BASE}/audiobook`, {
       method: 'POST',
