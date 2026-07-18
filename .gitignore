@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# Python / TTS server
+server/.venv
+__pycache__/
+*.pyc
+server/data/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
