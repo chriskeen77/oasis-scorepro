@@ -73,6 +73,18 @@ first run ever, downloads weights from Hugging Face — a few GB for Chatterbox)
 | `KOKORO_DEVICE` | second GPU | Device for Kokoro |
 | `TTS_CHUNK_CHARS` | `350` | Max characters per generation chunk |
 | `TTS_PORT` | `8000` | Backend port |
+| `TTS_CORS_ORIGINS` | localhost:5173 | Comma-separated browser origins allowed to call the API |
+
+## Using the API from other apps
+
+The backend is a plain HTTP API, so any app can add a "narrate" button:
+
+- `POST /api/tts` `{engine, text, voice}` → WAV audio (short text, up to 5k chars)
+- `POST /api/audiobook` → `{job_id}`, then poll `GET /api/jobs/{id}` and fetch
+  `GET /api/jobs/{id}/download` when done (long text, chapters supported)
+
+Desktop/mobile apps can call it directly. Web apps running in a browser need
+their origin added to `TTS_CORS_ORIGINS`.
 
 ## Notes
 

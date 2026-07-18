@@ -52,3 +52,12 @@ SAMPLE_RATE = 24000  # both Chatterbox and Kokoro emit 24 kHz audio
 
 HOST = os.environ.get("TTS_HOST", "127.0.0.1")
 PORT = int(os.environ.get("TTS_PORT", "8000"))
+
+# Browser origins allowed to call the API (comma-separated). Add your own
+# app's origin here to call /api/tts from another web app, e.g.
+#   TTS_CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+CORS_ORIGINS = [
+    o.strip() for o in os.environ.get(
+        "TTS_CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
+    ).split(",") if o.strip()
+]
