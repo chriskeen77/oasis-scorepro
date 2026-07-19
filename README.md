@@ -15,6 +15,7 @@ to hide the twist, then writes and streams your story live onto the page.
 - **Skip / surprise me** — leave any ingredient to the storyteller's judgment
 - **Review screen** — see the whole recipe, edit any ingredient, and pick a length (short tale / full story / epic)
 - **Deep-thinking story generation** — the final story uses Claude's adaptive thinking at high effort and streams in token by token
+- **Narration + WAV export** — have the finished story read aloud with your browser's speech voices (with a voice picker and pause/resume), and once narration completes, save a WAV of the story rendered by the built-in offline narrator (browsers can't record their own speech voices, so the file uses a bundled espeak voice)
 - **Demo mode & graceful fallback** — explore the full flow with curated sample ideas if you don't have an API key or the API is unreachable
 
 ## Getting started

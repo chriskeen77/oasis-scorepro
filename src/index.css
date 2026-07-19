@@ -516,6 +516,43 @@ h1.brand {
   justify-content: flex-end;
 }
 
+.narration-bar {
+  margin-top: 1.5rem;
+  background: var(--bg-raise);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 1rem 1.25rem;
+}
+
+.narration-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.narration-status {
+  color: var(--amber);
+  font-size: 0.92rem;
+  font-style: italic;
+  margin-right: auto;
+}
+
+.voice-select {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--ink);
+  padding: 0.55rem 0.7rem;
+  font-size: 0.88rem;
+  max-width: 260px;
+}
+
+.voice-select:focus {
+  outline: none;
+  border-color: var(--amber-deep);
+}
+
 @media (max-width: 560px) {
   .review-item {
     grid-template-columns: 1fr;
