@@ -226,7 +226,37 @@ open books locked to Amazon's ecosystem; no device except a Kindle legally
 can." Every source above flows through the app — which is the real moat
 (a cloned puck without the content pipeline is just a blinking screen).
 
-## 12. Immediate next actions
+## 12. Monetization — subscription layer
+
+The user owns three AI book-generation apps (**Storybooks, Storytales,
+Book Loom**) — existing assets that become the recurring-revenue layer on
+top of hardware sales.
+
+- **Model:** device is a one-time purchase and must remain fully useful
+  forever without paying (own EPUBs, articles, public-domain catalog —
+  free, always). The subscription (**"Bookmark+"**, ~$5–8/mo) sells
+  *content creation*, never core reading — paywalling reading is the
+  review that kills hardware products.
+- **Subscription features:** AI story/book generation (from the existing
+  apps), and an **AI daily briefing** — NOT AI-generated "news"
+  (hallucination liability) but real articles from user-chosen feeds,
+  summarized and stitched into one five-minute morning read with sources
+  credited. The briefing is the retention engine: subscriptions survive on
+  daily habits, and stories alone are occasional-use.
+- **Economics:** hardware margin ~$50 once; a subscriber adds $60–96/yr
+  recurring. Watch inference costs as COGS — cap generation volume by
+  tier, use cheap models for briefings, know per-user cost before pricing.
+  Don't promise users legal "ownership" of AI-generated books (murky
+  copyright status); "for personal use" framing.
+- **Kickstarter tie-in:** pledge tiers bundling "device + 1 year of
+  Bookmark+" — high perceived value, near-zero marginal cost, and
+  recurring revenue makes the business fundable beyond the campaign.
+- **App consolidation:** fold the three generator apps into one Bookmark
+  content-hub app (Read + Library + Create tabs, one subscription, one
+  brand) rather than maintaining four codebases/brands; existing apps
+  become the feature backlog or export-to-Bookmark feeders.
+
+## 13. Immediate next actions
 
 1. Order the Waveshare board + battery + magnet rings.
 2. Compile & flash `firmware/` (fix any first-build library mismatches).
