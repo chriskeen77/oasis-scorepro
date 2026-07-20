@@ -153,7 +153,52 @@ stack, possibly a rotating bezel for speed control.
 5. Launch with the "anti-phone for reading" story; the pull-off-the-phone
    gesture opens the video.
 
-## 9. Immediate next actions
+## 9. Waterproofing decisions
+
+- **Target spec: "rain and pocket proof" (IP54–IPX5), not IP68.** Real
+  failure scenarios are rain, sweat, and splashes — nobody reads submerged,
+  and capacitive touch misbehaves on a wet screen anyway. Don't join the
+  IP68 arms race.
+- **Qi-only charging on the production base model is the keystone:** no
+  USB-C port = no hole = a fully glued/gasketed sealed monocoque, which can
+  reach IP67 nearly for free. This upgrades wireless charging from
+  convenience to engineering cornerstone. (If a USB-C port survives into
+  production, use a sealed IPX7-rated connector + gasket, ~$1 BOM.)
+- **The Pro rotating bezel works against sealing** — a rotating seam needs
+  O-rings and tighter tolerances (solvable; every dive watch does it, but
+  it's tooling iterations). Acceptable outcome: base model carries the
+  higher water rating; Pro trades some of it for the tactile dial. Decide
+  consciously, before tooling.
+- **Conformal-coat the PCB in every version** (sprayed protective film,
+  pennies/unit) — cheap insurance so a splash that sneaks in doesn't kill
+  the board. Do this even on garage-built units.
+- **Claims discipline:** IP ratings are marketing claims, not certifications
+  — only print numbers a lab has verified (IP tests ≈ $1–5k per enclosure
+  revision). Market as "water-resistant (IPX5)", never a bigger number than
+  tested, and don't exclude water damage from warranty while advertising a
+  rating.
+- **Timing:** irrelevant for the 3D-printed prototype (printed cases leak by
+  nature). Must be decided **before production tooling** — gasket channels
+  and glue grooves are mold features. Lock the enclosure before paying for
+  IP testing; every revision re-tests.
+
+## 10. IP & legal checklist
+
+- **Freedom-to-operate check on Spritz patents (priority).** Spritz Inc.
+  patented aspects of RSVP display with ORP letter alignment (~2014, likely
+  still in force). Before taking public money for a device whose signature
+  feature is ORP-highlighted flashing, get a patent attorney's opinion.
+- **Kickstarter launch = public disclosure.** The US allows a 12-month grace
+  period to file after disclosure; most other countries have absolute
+  novelty — foreign patent rights die at launch. If any patent filing is
+  wanted, file a **provisional** (cheap, buys 12 months of "patent
+  pending") *before* the campaign goes live.
+- **Naming:** "Bookmark" is generic — weak trademark, unwinnable SEO.
+  Choose a distinctive brand or coined name before printing anything.
+- Business basics before preorders: LLC, product liability insurance
+  (battery device), returns/warranty policy, sales-tax handling.
+
+## 11. Immediate next actions
 
 1. Order the Waveshare board + battery + magnet rings.
 2. Compile & flash `firmware/` (fix any first-build library mismatches).
