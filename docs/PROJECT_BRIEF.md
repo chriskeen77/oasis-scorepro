@@ -51,9 +51,14 @@ bookmark (the name still works via the hold-your-place feature).
 - **RSVP rendering:** ORP (Optimal Recognition Point) letter highlighted in
   orange and centered; longer pauses at punctuation and paragraph breaks;
   long words get extra display time; progress arc around the round rim.
-- **Touch controls:** tap = play/pause · vertical drag = live speed
-  adjustment (10 wpm per notch) · long-press = light/dark theme.
+- **Touch controls:** tap = play/pause · long-press = light/dark theme ·
+  speed via the **click-wheel gesture** — finger circles the rim of the
+  round screen like an iPod wheel (spec in `docs/SPEED_CONTROL.md`;
+  supersedes the vertical-drag control currently in the firmware).
 - Speed range 60–1200 wpm, default 300.
+- **Bookmark Pro concept:** a physical magnetic rotating bezel with tactile
+  detents as a premium-tier upgrade — parked until click-wheel user testing
+  shows whether it's needed (see `docs/SPEED_CONTROL.md` §2).
 
 ## 4. Architecture decisions
 
