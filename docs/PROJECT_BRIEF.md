@@ -248,6 +248,17 @@ top of hardware sales.
   tier, use cheap models for briefings, know per-user cost before pricing.
   Don't promise users legal "ownership" of AI-generated books (murky
   copyright status); "for personal use" framing.
+- **Briefing pipeline (generate once, serve everyone):** (1) scheduled
+  morning job fetches real articles from RSS/news APIs — the model must
+  summarize real reporting, never write "news" from memory; (2) **Opus**
+  (`claude-opus-4-8`) writes the master sections once daily (~$1–2/day
+  fixed regardless of subscriber count; use the API's Batch mode for 50%
+  off since nobody is waiting); (3) serving the finished text to
+  subscribers is a plain server/CDN fetch — **no AI in distribution**;
+  (4) optional per-user personalization with **Haiku**
+  (`claude-haiku-4-5`) assembling custom editions from the master
+  sections (~1.5¢/user/day). Fixed cost ~$20–50/mo + pennies per
+  subscriber — margins work from the first hundred subscribers.
 - **Kickstarter tie-in:** pledge tiers bundling "device + 1 year of
   Bookmark+" — high perceived value, near-zero marginal cost, and
   recurring revenue makes the business fundable beyond the campaign.
