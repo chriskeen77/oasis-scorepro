@@ -19,6 +19,18 @@ but it also carries every notification and temptation. Bookmark is a
 single-purpose object that feels like reading, not like using a phone. The
 name doubles as the sync feature: it always holds your place.
 
+**Business framing — the Kindle model.** The phone app is a full product in
+its own right; people will use bookmark.app whether or not they own the
+puck. Structure: free app (breadth, funnel) → Bookmark+ subscription
+(recurring revenue, works phone-only) → the puck as the premium physical
+tier for the most engaged users. Consequences: launch the app publicly
+*before* the Kickstarter to build the subscriber/email base; expect and
+accept a modest hardware attach rate (~5–15% of engaged users, like
+Kindle); app usage metrics become the campaign's proof of demand; and
+subscription revenue no longer depends on hardware shipping. The free app
+strengthens rather than cannibalizes the device pitch — app users learn the
+notification-interruption problem firsthand; the puck is the answer.
+
 ## 2. Form factor — decision history
 
 - **Original idea:** a 3" × 0.75" handheld stick with a touch strip screen,
