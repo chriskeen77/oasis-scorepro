@@ -198,7 +198,35 @@ stack, possibly a rotating bezel for speed control.
 - Business basics before preorders: LLC, product liability insurance
   (battery device), returns/warranty policy, sales-tax handling.
 
-## 11. Immediate next actions
+## 11. Content strategy (the Kindle question)
+
+Kindle books are DRM-locked and stay off-limits: DMCA anti-circumvention
+makes DRM stripping illegal even for owned books — the company never builds
+around it or winks at it. Workarounds, in order of daily-use value:
+
+1. **Articles/newsletters/web — the killer source, all DRM-free.** Android
+   share-sheet target + browser extension ("Read on Bookmark"), plus a
+   personal forwarding email address (send-to-Kindle style) for
+   newsletters. Most people's daily reading is this, not novels, and RSVP
+   suits a long article even better than a book chapter.
+2. **Public domain in-app catalog:** Project Gutenberg (70k+ books) and
+   Standard Ebooks (beautiful formatting) — a full free library on day one,
+   zero licensing cost.
+3. **DRM-free stores:** Tor, Baen, Smashwords, Leanpub, Humble Bundles,
+   indie authors — "works with every DRM-free EPUB."
+4. **Web serials & fanfiction:** AO3 (open EPUB downloads), Royal Road —
+   huge, voracious, underserved communities.
+5. **Personal documents:** EPUB/TXT/PDF extraction, paste-from-clipboard.
+6. **Later:** publisher/affiliate partnerships once hardware has shipped.
+
+**Positioning:** never a Kindle replacement — the device for *everything
+you read that isn't a Kindle book*. FAQ framing: "Bookmark reads anything
+DRM-free — articles, newsletters, EPUBs, 70,000 free classics. It can't
+open books locked to Amazon's ecosystem; no device except a Kindle legally
+can." Every source above flows through the app — which is the real moat
+(a cloned puck without the content pipeline is just a blinking screen).
+
+## 12. Immediate next actions
 
 1. Order the Waveshare board + battery + magnet rings.
 2. Compile & flash `firmware/` (fix any first-build library mismatches).
