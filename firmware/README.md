@@ -1,5 +1,11 @@
 # Bookmark prototype firmware
 
+> **Status:** written and host syntax/type-checked, but not yet compiled with
+> the real ESP32 toolchain or run on hardware (authored in a sandbox without
+> access to the PlatformIO registry). Expect the first `pio run` to possibly
+> surface minor library-API mismatches in `main.cpp` — the structure and
+> protocol logic are solid, but budget a first-flash debugging session.
+
 Firmware for the round Bookmark prototype, targeting the
 **Waveshare ESP32-S3-Touch-LCD-1.28** dev board (round 1.28" 240×240 touch
 LCD + ESP32-S3 + battery charging on one $20 board).
